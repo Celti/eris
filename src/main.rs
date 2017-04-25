@@ -7,6 +7,7 @@ extern crate serenity;
 #[macro_use]
 extern crate lazy_static;
 
+extern crate fnorder;
 extern crate rand;
 extern crate regex;
 extern crate rink;
@@ -37,11 +38,12 @@ fn run() -> Result<()> {
 
     client.with_framework(|f| {
         f.configure(|c| c.prefix("."))
-            .command("ping", |c| c.exec(commands::meta::ping))
-            .command("foo", |c| c.exec(commands::meta::foo))
-            .command("roll", |c| c.exec(commands::dice::roll))
-            .command("calc", |c| c.exec(commands::calc::calc))
-            .command("st", |c| c.exec(commands::gurps::st))
+            .command("ping",  |c| c.exec(commands::meta::ping))
+            .command("foo",   |c| c.exec(commands::meta::foo))
+            .command("roll",  |c| c.exec(commands::dice::roll))
+            .command("calc",  |c| c.exec(commands::calc::calc))
+            .command("st",    |c| c.exec(commands::gurps::st))
+            .command("fnord", |c| c.exec(commands::toys::fnord))
     });
 
     client.start().chain_err(|| "failed to start shard")
