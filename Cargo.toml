@@ -4,7 +4,7 @@ version = "0.3.0"
 authors = ["Patrick Burroughs (Celti) <celti@celti.name>"]
 
 [dependencies]
-serenity = { git = "https://github.com/zeyla/serenity.git", rev = "5bf6c2d" }
+serenity = { git = "https://github.com/zeyla/serenity.git" }
 error-chain = "0.10"
 regex = "0.2"
 lazy_static = "0.2"
