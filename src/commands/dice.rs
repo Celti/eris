@@ -58,11 +58,11 @@ fn roll_dice(expr: &Segment) -> String {
         match m.as_str() {
             "b" => {
                 rolls.sort_by(|a, b| b.cmp(a));
-                sum = rolls[0 .. expr.value as usize - 1].iter().fold(0, |s,x| s + x);
+                sum = rolls[0 .. expr.value as usize].iter().fold(0, |s,x| s + x);
             }
             "w" => {
-                rolls.sort_by(|a, b| b.cmp(a));
-                sum = rolls[0 .. expr.value as usize - 1].iter().fold(0, |s,x| s + x);
+                rolls.sort_by(|a, b| a.cmp(b));
+                sum = rolls[0 .. expr.value as usize].iter().fold(0, |s,x| s + x);
             }
             "+"      => sum += expr.value,
             "-"      => sum -= expr.value,
