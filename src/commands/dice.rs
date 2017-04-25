@@ -15,7 +15,7 @@ pub struct Segment {
 lazy_static! {
     static ref RE: Regex = Regex::new(r"(?x)
         (?: (?P<rolls>\d+) [*x] )?                          # repeated rolls
-        (?P<dice>\d+)? d (?P<sides>\d+)?                    # number of dice and sides
+        (?: (?P<dice>\d+)? d (?P<sides>\d+)? )?             # number of dice and sides
         (?: (?P<modifier>[-+*x/\\bw]) (?P<value>\d*) )?     # modifier and value
         (?: \s* (?: (?P<vs>vs?) \s*?                        # versus
             (?P<tag>\S+?.*?)? [\s-] )                       # tag
@@ -29,7 +29,7 @@ fn parse_segments(expr: &str) -> Vec<Segment> {
     for cap in RE.captures_iter(&expr) {
         segments.push( Segment {
             rolls:    cap.name("rolls")   .map(|c| c.as_str()).unwrap_or("1").parse().unwrap(),
-            dice:     cap.name("dice")    .map(|c| c.as_str()).unwrap_or("1").parse().unwrap(),
+            dice:     cap.name("dice")    .map(|c| c.as_str()).unwrap_or("3").parse().unwrap(),
             sides:    cap.name("sides")   .map(|c| c.as_str()).unwrap_or("6").parse().unwrap(),
             modifier: cap.name("modifier").map(|c| c.as_str().to_string()),
             value:    cap.name("value")   .map(|c| c.as_str()).unwrap_or("0").parse().unwrap(),
