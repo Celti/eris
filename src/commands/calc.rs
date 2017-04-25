@@ -1,4 +1,3 @@
-use errors::*;
 use rink::*;
 
 fn eval(line: &str) -> String {
