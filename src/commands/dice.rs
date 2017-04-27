@@ -15,12 +15,12 @@ pub struct Segment {
 lazy_static! {
     static ref RE: Regex = Regex::new(r"(?x)
         (?: (?P<rolls>\d+) [*x] )?                          # repeated rolls
-        (?: (?P<dice>\d+)? d (?P<sides>\d+)? )?             # number of dice and sides
+        (?: (?P<dice>\d+) d (?P<sides>\d+)? )               # number of dice and sides
         (?: (?P<modifier>[-+*x/\\bw]) (?P<value>\d*) )?     # modifier and value
         (?: \s* (?: (?P<vs>vs?) \s*?                        # versus
             (?P<tag>\S+?.*?)? [\s-] )                       # tag
             (?P<target>-?\d+) )?                            # target
-        \D?").unwrap();
+        ").unwrap();
 }
 
 fn parse_segments(expr: &str) -> Vec<Segment> {
@@ -101,8 +101,14 @@ fn roll_dice(expr: &Segment) -> String {
 command!(roll(_ctx, msg, arg) {
     let expr = arg.join(" ");
     let mut results: Vec<String> = Vec::new();
+    
+    let segments = parse_segments(&expr);
 
-    for segment in parse_segments(&expr) {
+    if segments.len() == 0 {
+        return Err("could not parse dice expression".to_string());
+    }
+
+    for segment in segments {
         for _ in 0 .. segment.rolls {
             results.push(roll_dice(&segment));
         }
