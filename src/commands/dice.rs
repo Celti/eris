@@ -2,14 +2,14 @@ use rand::distributions::{IndependentSample, Range};
 use regex::Regex;
 
 pub struct Segment {
-    rolls: i64,
-    dice: i64,
-    sides: i64,
+    rolls:    i64,
+    dice:     i64,
+    sides:    i64,
     modifier: Option<String>,
-    value: i64,
-    versus: bool,
-    tag: String,
-    target: i64,
+    value:    i64,
+    versus:   bool,
+    tag:      String,
+    target:   i64
 }
 
 lazy_static! {
@@ -27,16 +27,16 @@ fn parse_segments(expr: &str) -> Vec<Segment> {
     let mut segments: Vec<Segment> = Vec::new();
 
     for cap in RE.captures_iter(&expr) {
-        segments.push(Segment {
-            rolls: cap.name("rolls").map(|c| c.as_str()).unwrap_or("1").parse().unwrap(),
-            dice: cap.name("dice").map(|c| c.as_str()).unwrap_or("3").parse().unwrap(),
-            sides: cap.name("sides").map(|c| c.as_str()).unwrap_or("6").parse().unwrap(),
+        segments.push( Segment {
+            rolls:    cap.name("rolls")   .map(|c| c.as_str()).unwrap_or("1").parse().unwrap(),
+            dice:     cap.name("dice")    .map(|c| c.as_str()).unwrap_or("3").parse().unwrap(),
+            sides:    cap.name("sides")   .map(|c| c.as_str()).unwrap_or("6").parse().unwrap(),
             modifier: cap.name("modifier").map(|c| c.as_str().to_string()),
-            value: cap.name("value").map(|c| c.as_str()).unwrap_or("0").parse().unwrap(),
-            versus: cap.name("vs").map(|c| c.as_str()).is_some(),
-            tag: cap.name("tag").map(|c| c.as_str()).unwrap_or("Skill").to_string(),
-            target: cap.name("target").map(|c| c.as_str()).unwrap_or("0").parse().unwrap(),
-        });
+            value:    cap.name("value")   .map(|c| c.as_str()).unwrap_or("0").parse().unwrap(),
+            versus:   cap.name("vs")      .map(|c| c.as_str()).is_some(),
+            tag:      cap.name("tag")     .map(|c| c.as_str()).unwrap_or("Skill").to_string(),
+            target:   cap.name("target")  .map(|c| c.as_str()).unwrap_or("0").parse().unwrap(),
+        } );
     }
 
     segments
@@ -48,26 +48,26 @@ fn roll_dice(expr: &Segment) -> String {
 
     let mut rolls: Vec<i64> = Vec::new();
 
-    for _ in 0..expr.dice {
+    for _ in 0 .. expr.dice {
         rolls.push(die.ind_sample(&mut rng));
     }
 
-    let mut sum: i64 = rolls.iter().fold(0, |s, x| s + x);
+    let mut sum: i64 = rolls.iter().fold(0, |s,x| s + x);
 
     if let Some(ref m) = expr.modifier {
         match m.as_str() {
             "b" => {
                 rolls.sort_by(|a, b| b.cmp(a));
-                sum = rolls[0..expr.value as usize].iter().fold(0, |s, x| s + x);
+                sum = rolls[0 .. expr.value as usize].iter().fold(0, |s,x| s + x);
             }
             "w" => {
                 rolls.sort_by(|a, b| a.cmp(b));
-                sum = rolls[0..expr.value as usize].iter().fold(0, |s, x| s + x);
+                sum = rolls[0 .. expr.value as usize].iter().fold(0, |s,x| s + x);
             }
-            "+" => sum += expr.value,
-            "-" => sum -= expr.value,
-            "*" | "x" => sum *= expr.value,
-            "/" | "\\" => sum /= expr.value,
+            "+"      => sum += expr.value,
+            "-"      => sum -= expr.value,
+            "*"|"x"  => sum *= expr.value,
+            "/"|"\\" => sum /= expr.value,
             _ => unreachable!(),
         }
     }
@@ -77,39 +77,24 @@ fn roll_dice(expr: &Segment) -> String {
         let skill = format!("{}-{}", expr.tag.trim(), expr.target);
 
         if sum < 5 || (expr.target > 14 && sum < 6) || (expr.target > 15 && sum < 7) {
-            return format!("{} vs {}: Success by {} ***(CRITICAL SUCCESS)***",
-                           sum,
-                           skill,
-                           margin);
+            return format!("{:>2} vs {}: Success by {} ***(CRITICAL SUCCESS)***", sum, skill, margin);
         } else if sum > 16 || margin <= -10 {
             if expr.target > 15 && sum == 17 {
-                return format!("{} vs {}: Margin of {} **(Automatic Failure)**",
-                               sum,
-                               skill,
-                               margin);
+                return format!("{:>2} vs {}: Margin of {} **(Automatic Failure)**", sum, skill, margin);
             } else {
-                return format!("{} vs {}: Failure by {} ***(CRITICAL FAILURE)***",
-                               sum,
-                               skill,
-                               margin.abs());
+                return format!("{:>2} vs {}: Failure by {} ***(CRITICAL FAILURE)***", sum, skill, margin.abs());
             }
         } else if margin < 0 {
-            return format!("{} vs {}: Failure by {}", sum, skill, margin.abs());
+            return format!("{:>2} vs {}: Failure by {}", sum, skill, margin.abs());
         } else {
-            return format!("{} vs {}: Success by {}", sum, skill, margin);
+            return format!("{:>2} vs {}: Success by {}", sum, skill, margin);
         }
     }
 
     if let Some(ref modifier) = expr.modifier {
-        format!("{}d{}{}{}: {} {:?}",
-                expr.dice,
-                expr.sides,
-                modifier,
-                expr.value,
-                sum,
-                rolls)
+        format!("{}d{}{}{}: {:>3} {:?}", expr.dice, expr.sides, modifier, expr.value, sum, rolls)
     } else {
-        format!("{}d{}: {} {:?}", expr.dice, expr.sides, sum, rolls)
+        format!("{}d{}: {:>3} {:?}", expr.dice, expr.sides, sum, rolls)
     }
 }
 
@@ -129,5 +114,7 @@ command!(roll(_ctx, msg, arg) {
         }
     }
 
-    let _ = msg.channel_id.say(&format!("{}: {}\n{}", &msg.author.name, &expr, &results.join("\n")));
+    let _ = msg.channel_id.say(&format!("{}: {}\n```\n{}\n```", &msg.author.name, &expr, &results.join("\n")));
 });
+
+
