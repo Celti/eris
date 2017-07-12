@@ -72,7 +72,7 @@ fn roll_dice(expr: &Segment) -> String {
         }
     }
 
-    if expr.versus {
+    if expr.versus && expr.dice == 3 && expr.sides == 6 {
         let margin = expr.target - sum;
         let skill = format!("{}-{}", expr.tag.trim(), expr.target);
 
