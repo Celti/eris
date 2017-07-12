@@ -34,7 +34,7 @@ fn run() -> Result<()> {
     use std::env;
 
     let mut client =
-        Client::login(&env::var("DISCORD_TOKEN").chain_err(|| "could not get Discord token.")?);
+        Client::new(&env::var("DISCORD_TOKEN").chain_err(|| "could not get Discord token.")?);
 
     client.with_framework(|f| {
         f.configure(|c| c.prefix("."))
