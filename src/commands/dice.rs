@@ -77,12 +77,12 @@ fn roll_dice(expr: &Segment) -> String {
         let skill = format!("{}-{}", expr.tag.trim(), expr.target);
 
         if sum < 5 || (expr.target > 14 && sum < 6) || (expr.target > 15 && sum < 7) {
-            return format!("{:>2} vs {}: Success by {} ***(CRITICAL SUCCESS)***", sum, skill, margin);
+            return format!("{:>2} vs {}: Success by {} (CRITICAL SUCCESS)", sum, skill, margin);
         } else if sum > 16 || margin <= -10 {
             if expr.target > 15 && sum == 17 {
-                return format!("{:>2} vs {}: Margin of {} **(Automatic Failure)**", sum, skill, margin);
+                return format!("{:>2} vs {}: Margin of {} (Automatic Failure)", sum, skill, margin);
             } else {
-                return format!("{:>2} vs {}: Failure by {} ***(CRITICAL FAILURE)***", sum, skill, margin.abs());
+                return format!("{:>2} vs {}: Failure by {} (CRITICAL FAILURE)", sum, skill, margin.abs());
             }
         } else if margin < 0 {
             return format!("{:>2} vs {}: Failure by {}", sum, skill, margin.abs());
@@ -99,13 +99,14 @@ fn roll_dice(expr: &Segment) -> String {
 }
 
 command!(roll(_ctx, msg, arg) {
-    let expr = arg.join(" ");
+    let mut expr = arg.join(" ");
     let mut results: Vec<String> = Vec::new();
     
-    let segments = parse_segments(&expr);
+    let mut segments = parse_segments(&expr);
 
     if segments.len() == 0 {
-        return Err("could not parse dice expression".to_string());
+        expr = "3d6 ".to_string() + &expr;
+        segments = parse_segments(&expr);
     }
 
     for segment in segments {
@@ -114,7 +115,14 @@ command!(roll(_ctx, msg, arg) {
         }
     }
 
-    let _ = msg.channel_id.say(&format!("{}: {}\n```\n{}\n```", &msg.author.name, &expr, &results.join("\n")));
+    let _ = msg.channel_id.send_message(|m| m.embed(|e| e
+        .author(|a| a
+            .name(&format!("{} rolled {}", &msg.author.name, &expr))
+            .icon_url(&msg.author.avatar_url()
+                .unwrap_or("https://cdn.discordapp.com/avatars/256287298155577344/58a0a701a76a084cb395006b08c7c89d.webp".to_string())))
+        .colour(0xFFD700)
+        .description(&format!("```\n{}\n```", &results.join("\n")))
+    ));
 });
 
 
