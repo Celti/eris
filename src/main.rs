@@ -9,6 +9,8 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 #[macro_use]
+extern crate maplit;
+#[macro_use]
 extern crate serenity;
 extern crate chrono;
 extern crate fnorder;
@@ -62,17 +64,14 @@ fn run() -> Result<()> {
         || "could not get Discord application info",
     )?;
 
-    let mut owners = HashSet::with_capacity(1);
-    owners.insert(info.owner.id);
-
     client.with_framework(
         StandardFramework::new()
             .configure(|c| {
-                c.prefixes([".", "!", "/"].iter())
+                c.prefixes(hashset!{".", "!", "/"})
                     .case_insensitivity(true)
-                    .delimiters([", ", ",", ", or ", " or ", " "].iter())
+                    .delimiters(hashset!{", ", ",", ", or ", " or ", " "})
                     .on_mention(true)
-                    .owners(owners)
+                    .owners(hashset!{info.owner.id})
             })
             .command("help", |c| c.exec_help(help_commands::with_embeds))
             .command("fnord", |c| c.exec_str(&fnorder::fnorder()))
