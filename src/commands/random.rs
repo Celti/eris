@@ -15,12 +15,12 @@ pub struct Segment {
 
 lazy_static! {
     static ref RE: Regex = Regex::new(r"(?x)
-        (?: (?P<rolls>\d+) [*x] )?                       # repeated rolls
-        (?: (?P<dice>\d+) d (?P<sides>\d+)? )            # number and sides
-        (?: (?P<modifier>[-+*x/\\bw]) (?P<value>\d*) )?  # modifier and value
-        (?: \s* (?: (?P<vs>vs?) \s*?                     # versus
-            (?P<tag>\S+?.*?)? [\s-] )                    # tag
-            (?P<target>-?\d+) )?                         # target
+        (?: (?P<rolls>\d+) [*x] )?                         # repeated rolls
+        (?: (?P<dice>\d+) d (?P<sides>\d+)? )              # number and sides
+        (?: (?P<modifier>[-+*x×÷/\\bw]) (?P<value>\d*) )?  # modifier and value
+        (?: \s* (?: (?P<vs>vs?) \s*?                       # versus
+            (?P<tag>\S+?.*?)? [\s-] )                      # tag
+            (?P<target>-?\d+) )?                           # target
         ").unwrap();
 }
 
@@ -90,8 +90,8 @@ fn roll_dice(expr: &Segment) -> String {
             }
             "+" => sum += expr.value,
             "-" => sum -= expr.value,
-            "*" | "x" => sum *= expr.value,
-            "/" | "\\" => sum /= expr.value,
+            "*" | "x" | "×" => sum *= expr.value,
+            "/" | "\\" | "÷" => sum /= expr.value,
             _ => unreachable!(),
         }
     }
