@@ -5,13 +5,10 @@ fn eval(line: &str) -> String {
     ctx.short_output = true;
     match one_line(&mut ctx, line) {
         Ok(v) => v,
-        Err(e) => e
+        Err(e) => e,
     }
 }
 
-command!(calc(_ctx, msg, arg) {
-    let expr = arg.join(" ");
-    let output = format!("{}: {}", &msg.author.name, eval(&expr));
-    let _ = msg.channel_id.say(&output);
+command!(calc(_ctx, msg, args) {
+    let _ = msg.reply(&eval(&args.full()));
 });
-

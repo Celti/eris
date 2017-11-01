@@ -1,50 +1,92 @@
 #![recursion_limit = "1024"]
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
 
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
-extern crate serenity;
-#[macro_use]
 extern crate lazy_static;
-
+#[macro_use]
+extern crate log;
+#[macro_use]
+extern crate serenity;
+extern crate chrono;
 extern crate fnorder;
 extern crate rand;
 extern crate regex;
 extern crate rink;
 
-mod errors;
 mod commands;
+mod errors;
+mod logger;
 
 use errors::*;
 
 fn main() {
-    if let Err(ref e) = run() {
-        use std::io::Write;
-        use error_chain::ChainedError; // trait which holds `display`
-        let stderr = &mut ::std::io::stderr();
-        let errmsg = "Error writing to stderr";
+    logger::init(log::LogLevel::Info).unwrap();
 
-        writeln!(stderr, "{}", e.display()).expect(errmsg);
-        ::std::process::exit(1);
+    if let Err(ref e) = run() {
+        use error_chain::ChainedError;
+        error!("{}", e.display_chain());
+        std::process::exit(1);
     }
 }
 
 fn run() -> Result<()> {
-    use serenity::Client;
-    use std::env;
+    use serenity::client::{Client, Context, EventHandler};
+    use serenity::framework::StandardFramework;
+    use serenity::framework::standard::help_commands;
+    use serenity::model::{Ready, Game, OnlineStatus};
+    use std::collections::HashSet;
 
-    let mut client =
-        Client::new(&env::var("DISCORD_TOKEN").chain_err(|| "could not get Discord token.")?);
+    struct Handler;
 
-    client.with_framework(|f| {
-        f.configure(|c| c.prefix("."))
-            .command("ping",  |c| c.exec(commands::meta::ping))
-            .command("foo",   |c| c.exec(commands::meta::foo))
-            .command("roll",  |c| c.exec(commands::dice::roll))
-            .command("calc",  |c| c.exec(commands::calc::calc))
-            .command("st",    |c| c.exec(commands::gurps::st))
-            .command("fnord", |c| c.exec(commands::toys::fnord))
-    });
+    impl EventHandler for Handler {
+        fn on_ready(&self, context: Context, ready: Ready) {
+            let game = Some(Game::playing("you all like a fiddle."));
+            let status = OnlineStatus::Idle;
+            let afk = false;
+
+            context.set_presence(game, status, afk);
+            info!("Connected as {}", ready.user.name);
+        }
+    }
+
+    let token = std::env::var("DISCORD_TOKEN").chain_err(
+        || "could not get Discord authentication token",
+    )?;
+
+    let mut client = Client::new(&token, Handler);
+
+    let info = serenity::http::get_current_application_info().chain_err(
+        || "could not get Discord application info",
+    )?;
+
+    let mut owners = HashSet::with_capacity(1);
+    owners.insert(info.owner.id);
+
+    client.with_framework(
+        StandardFramework::new()
+            .configure(|c| {
+                c.prefixes([".", "!", "/"].iter())
+                    .case_insensitivity(true)
+                    .delimiters([", ", ",", ", or ", " or ", " "].iter())
+                    .on_mention(true)
+                    .owners(owners)
+            })
+            .command("help", |c| c.exec_help(help_commands::with_embeds))
+            .command("fnord", |c| c.exec_str(&fnorder::fnorder()))
+            .command("choose", |c| {
+                c.exec(commands::random::choose)
+                    .known_as("decide")
+                    .known_as("pick")
+            })
+            .command("8ball", |c| c.exec(commands::random::eight))
+            .command("flip", |c| c.exec(commands::random::flip))
+            .command("roll", |c| c.exec(commands::random::roll))
+            .command("st", |c| c.exec(commands::gurps::st))
+            .command("calc", |c| c.exec(commands::calc::calc)),
+    );
 
     client.start().chain_err(|| "failed to start shard")
 }
