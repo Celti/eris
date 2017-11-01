@@ -66,12 +66,21 @@ fn run() -> Result<()> {
 
     client.with_framework(
         StandardFramework::new()
-            .configure(|c| {
-                c.prefixes(hashset!{".", "!", "/"})
-                    .case_insensitivity(true)
-                    .delimiters(hashset!{", ", ",", ", or ", " or ", " "})
-                    .on_mention(true)
-                    .owners(hashset!{info.owner.id})
+            .configure(|c| { c
+                .allow_dm(true)
+                .allow_whitespace(false)
+                // .blocked_guilds(hashset!{GuildId(1), GuildId(2)})
+                // .blocked_users(hashset!{UserId(1), UserId(2)})
+                .depth(5)
+                // .disabled_commands(hashset!{"foo", "fnord"})
+                // .dynamic_prefix(|_ctx, _msg| Some(String::from("!")))
+                .ignore_bots(true)
+                .ignore_webhooks(true)
+                .on_mention(true)
+                .owners(hashset!{info.owner.id})
+                .prefixes(hashset!{".", "!", "/"})
+                .delimiters(hashset!{", ", ",", ", or ", " or ", " "})
+                .case_insensitivity(true)
             })
             .command("help", |c| c.exec_help(help_commands::with_embeds))
             .command("fnord", |c| c.exec_str(&fnorder::fnorder()))
