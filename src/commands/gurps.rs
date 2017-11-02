@@ -97,5 +97,5 @@ fn get_strength(st: f64) -> String {
 }
 
 command!(st(_ctx, msg, arg) {
-    let _ = msg.reply(&get_strength(arg.single::<f64>()?));
+    msg.reply(&get_strength(arg.single::<f64>()?))?;
 });

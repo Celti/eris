@@ -1,14 +1,12 @@
-use rink::*;
-
-fn eval(line: &str) -> String {
-    let mut ctx = load().unwrap();
-    ctx.short_output = true;
-    match one_line(&mut ctx, line) {
-        Ok(v) => v,
-        Err(e) => e,
-    }
-}
+use rink::{load, one_line};
 
 command!(calc(_ctx, msg, args) {
-    let _ = msg.reply(&eval(&args.full()));
+    let mut ctx = load()?;
+    ctx.short_output = true;
+
+    let output = match one_line(&mut ctx, &args.full()) {
+        Ok(r) => r, Err(e) => e
+    };
+
+    msg.reply(&output)?;
 });

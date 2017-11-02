@@ -1,8 +1,8 @@
-use rand::Rng;
+use rand::{self,Rng};
 use rand::distributions::{IndependentSample, Range};
 use regex::Regex;
 
-pub struct Segment {
+struct DiceExpr {
     rolls: i64,
     dice: i64,
     sides: i64,
@@ -13,22 +13,100 @@ pub struct Segment {
     target: i64,
 }
 
-lazy_static! {
-    static ref RE: Regex = Regex::new(r"(?x)
+impl DiceExpr {
+    fn roll(&self) -> String {
+        let mut rng = rand::thread_rng();
+        let mut rolls: Vec<i64> = Vec::new();
+        let die = Range::new(1, self.sides + 1);
+
+        for _ in 0..self.dice {
+            rolls.push(die.ind_sample(&mut rng));
+        }
+
+        let mut sum: i64 = rolls.iter().fold(0, |s, x| s + x);
+
+        if let Some(ref m) = self.modifier {
+            match m.as_str() {
+                "b" => {
+                    rolls.sort_by(|a, b| b.cmp(a));
+                    sum = rolls[0..self.value as usize].iter().fold(0, |s, x| s + x);
+                }
+                "w" => {
+                    rolls.sort_by(|a, b| a.cmp(b));
+                    sum = rolls[0..self.value as usize].iter().fold(0, |s, x| s + x);
+                }
+                "+" => sum += self.value,
+                "-" => sum -= self.value,
+                "*" | "x" | "×" => sum *= self.value,
+                "/" | "\\" | "÷" => sum /= self.value,
+                _ => unreachable!(),
+            }
+        }
+
+        if self.versus && self.dice == 3 && self.sides == 6 {
+            // GURPS 4th Edition success roll.
+            let margin = self.target - sum; // Roll under.
+            let skill = format!("{}-{}", self.tag.trim(), self.target);
+
+            if sum < 5 || (self.target > 14 && sum < 6) || (self.target > 15 && sum < 7) {
+                format!("{:>2} vs {}: Success by {} (CRITICAL SUCCESS)", sum, skill, margin)
+            } else if sum > 16 || margin <= -10 {
+                if self.target > 15 && sum == 17 {
+                    format!("{:>2} vs {}: Margin of {} (Automatic Failure)", sum, skill, margin)
+                } else {
+                    format!("{:>2} vs {}: Failure by {} (CRITICAL FAILURE)", sum, skill, margin.abs())
+                }
+            } else if margin < 0 {
+                format!("{:>2} vs {}: Failure by {}", sum, skill, margin.abs())
+            } else {
+                format!("{:>2} vs {}: Success by {}", sum, skill, margin)
+            }
+        } else if self.versus && self.dice == 1 && self.sides == 20 {
+            // Generic d20 system success roll.
+            let margin = sum - self.target; // Roll over.
+            let skill = format!("{}-{}", self.tag.trim(), self.target);
+
+            if margin < 0 {
+                format!("{:>2} vs {}: Failure by {}", sum, skill, margin.abs())
+            } else {
+                format!("{:>2} vs {}: Success by {}", sum, skill, margin)
+            }
+        } else if self.versus && self.dice == 1 && self.sides == 100 {
+            // Generic percentile system success roll.
+            let margin = self.target - sum; //Roll under.
+            let skill = format!("{}-{}", self.tag.trim(), self.target);
+
+            if margin < 0 {
+                format!("{:>2} vs {}: Failure by {}", sum, skill, margin.abs())
+            } else {
+                format!("{:>2} vs {}: Success by {}", sum, skill, margin)
+            }
+        } else if let Some(ref modifier) = self.modifier {
+            // Not a versus roll, output with modifier.
+            format!("{}d{}{}{}: {:>3} {:?}",
+                self.dice, self.sides, modifier, self.value, sum, rolls)
+        } else {
+            // Bog-standard normal die roll.
+            format!("{}d{}: {:>3} {:?}", self.dice, self.sides, sum, rolls)
+        }
+    }
+}
+
+fn parse_dice(expr: &str) -> Vec<DiceExpr> {
+    lazy_static! { static ref RE: Regex = Regex::new(r"(?x)
         (?: (?P<rolls>\d+) [*x] )?                         # repeated rolls
-        (?: (?P<dice>\d+) d (?P<sides>\d+)? )              # number and sides
+        (?: (?P<dice>\d+) d (?P<sides>\d+)? )              # number, optional sides
         (?: (?P<modifier>[-+*x×÷/\\bw]) (?P<value>\d*) )?  # modifier and value
         (?: \s* (?: (?P<vs>vs?) \s*?                       # versus
             (?P<tag>\S+?.*?)? [\s-] )                      # tag
             (?P<target>-?\d+) )?                           # target
         ").unwrap();
-}
+    }
 
-fn parse_segments(expr: &str) -> Vec<Segment> {
-    let mut segments: Vec<Segment> = Vec::new();
+    let mut dice: Vec<DiceExpr> = Vec::new();
 
     for cap in RE.captures_iter(expr) {
-        segments.push(Segment {
+        dice.push(DiceExpr {
             rolls: cap.name("rolls")
                 .map(|c| c.as_str())
                 .unwrap_or("1")
@@ -63,102 +141,23 @@ fn parse_segments(expr: &str) -> Vec<Segment> {
         });
     }
 
-    segments
-}
-
-fn roll_dice(expr: &Segment) -> String {
-    let mut rng = ::rand::thread_rng();
-    let die = Range::new(1, expr.sides + 1);
-
-    let mut rolls: Vec<i64> = Vec::new();
-
-    for _ in 0..expr.dice {
-        rolls.push(die.ind_sample(&mut rng));
-    }
-
-    let mut sum: i64 = rolls.iter().fold(0, |s, x| s + x);
-
-    if let Some(ref m) = expr.modifier {
-        match m.as_str() {
-            "b" => {
-                rolls.sort_by(|a, b| b.cmp(a));
-                sum = rolls[0..expr.value as usize].iter().fold(0, |s, x| s + x);
-            }
-            "w" => {
-                rolls.sort_by(|a, b| a.cmp(b));
-                sum = rolls[0..expr.value as usize].iter().fold(0, |s, x| s + x);
-            }
-            "+" => sum += expr.value,
-            "-" => sum -= expr.value,
-            "*" | "x" | "×" => sum *= expr.value,
-            "/" | "\\" | "÷" => sum /= expr.value,
-            _ => unreachable!(),
-        }
-    }
-
-    if expr.versus && expr.dice == 3 && expr.sides == 6 {
-        let margin = expr.target - sum;
-        let skill = format!("{}-{}", expr.tag.trim(), expr.target);
-
-        if sum < 5 || (expr.target > 14 && sum < 6) || (expr.target > 15 && sum < 7) {
-            return format!(
-                "{:>2} vs {}: Success by {} (CRITICAL SUCCESS)",
-                sum,
-                skill,
-                margin
-            );
-        } else if sum > 16 || margin <= -10 {
-            if expr.target > 15 && sum == 17 {
-                return format!(
-                    "{:>2} vs {}: Margin of {} (Automatic Failure)",
-                    sum,
-                    skill,
-                    margin
-                );
-            } else {
-                return format!(
-                    "{:>2} vs {}: Failure by {} (CRITICAL FAILURE)",
-                    sum,
-                    skill,
-                    margin.abs()
-                );
-            }
-        } else if margin < 0 {
-            return format!("{:>2} vs {}: Failure by {}", sum, skill, margin.abs());
-        } else {
-            return format!("{:>2} vs {}: Success by {}", sum, skill, margin);
-        }
-    }
-
-    if let Some(ref modifier) = expr.modifier {
-        format!(
-            "{}d{}{}{}: {:>3} {:?}",
-            expr.dice,
-            expr.sides,
-            modifier,
-            expr.value,
-            sum,
-            rolls
-        )
-    } else {
-        format!("{}d{}: {:>3} {:?}", expr.dice, expr.sides, sum, rolls)
-    }
+    dice
 }
 
 command!(roll(_ctx, msg, args) {
     let mut expr = args.full();
     let mut results: Vec<String> = Vec::new();
 
-    let mut segments = parse_segments(&expr);
+    let mut segments = parse_dice(&expr);
 
     if segments.is_empty() {
         expr = "3d6 ".to_string() + &expr;
-        segments = parse_segments(&expr);
+        segments = parse_dice(&expr);
     }
 
     for segment in segments {
         for _ in 0 .. segment.rolls {
-            results.push(roll_dice(&segment));
+            results.push(segment.roll());
         }
     }
 
@@ -168,32 +167,31 @@ command!(roll(_ctx, msg, args) {
         msg.author.name.clone()
     };
 
-    #[allow(unreadable_literal)]
-    let _ = msg.channel_id.send_message(|m| m.embed(|e| e
+    msg.channel_id.send_message(|m| m.embed(|e| e
         .author(|a| a
             .name(&format!("@{} rolled {}", &name, &expr))
             .icon_url(&msg.author.face()))
-        .colour(0xFFD700)
+        .colour(0xFF_D7_00)
         .description(&format!("```\n{}\n```", &results.join("\n")))
-    ));
+    ))?;
 });
 
 command!(flip(_ctx, msg) {
-    let mut rng = ::rand::thread_rng();
+    let mut rng = rand::thread_rng();
 
-    let _ = if rng.gen_weighted_bool(1000) {
-        msg.reply("Edge!")
+    msg.reply(if rng.gen_weighted_bool(1000) {
+        "Edge!"
     } else if rng.gen() {
-        msg.reply("Heads!")
+        "Heads!"
     } else {
-        msg.reply("Tails!")
-    };
+        "Tails!"
+    })?;
 });
 
 command!(choose(_ctx, msg, args) {
-    let mut rng = ::rand::thread_rng();
+    let mut rng = rand::thread_rng();
     let choices = args.list::<String>()?;
-    let _ = msg.reply(rng.choose(&choices).unwrap());
+    msg.reply(rng.choose(&choices).unwrap())?;
 });
 
 command!(eight(_ctx, msg) {
@@ -212,6 +210,6 @@ command!(eight(_ctx, msg) {
         "Why do you want to know?", "Corner pocket.", "Scratch.", "Side pocket."
     ];
 
-    let mut rng = ::rand::thread_rng();
-    let _ = msg.reply(rng.choose(&ANSWERS).unwrap());
+    let mut rng = rand::thread_rng();
+    msg.reply(rng.choose(&ANSWERS).unwrap())?;
 });
