@@ -5,6 +5,7 @@ authors = ["Celti Burroughs <celti@celti.name>"]
 
 [dependencies]
 chrono = "0.4"
+ddate = "0.4"
 error-chain = "0.11"
 fnorder = "1.0"
 lazy_static = "0.2"

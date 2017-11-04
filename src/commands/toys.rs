@@ -1,3 +1,6 @@
+use chrono::Utc;
+use ddate::DiscordianDate;
+
 command!(fnord(_ctx, msg) {
     msg.channel_id.say(&::fnorder::fnorder())?;
 });
@@ -21,6 +24,5 @@ command!(trade(_ctx, msg) {
 });
 
 command!(ddate(_ctx, msg) {
-    msg.channel_id.say(&format!("Today is {}",
-                                ::ext::ddate::ddate(&::chrono::Utc::now())))?;
+    msg.channel_id.say(&format!("Today is {}", Utc::today().to_poee()))?;
 });

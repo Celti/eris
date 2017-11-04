@@ -25,6 +25,7 @@ extern crate log;
 extern crate chrono;
 
 // Modules.
+extern crate ddate;
 extern crate fnorder;
 extern crate rink;
 
