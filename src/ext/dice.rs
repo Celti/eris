@@ -1,9 +1,10 @@
 use rand;
 use rand::distributions::{IndependentSample, Range};
 use regex::Regex;
-use std::fmt::Display;
 use std::fmt;
+use std::fmt::Display;
 use std::str::FromStr;
+use std::string::ToString;
 
 #[derive(Clone, Debug)]
 pub struct DiceExpr {
@@ -107,13 +108,8 @@ impl DiceExpr {
             } else {
                 format!("{:>3} vs {}: Success by {}", sum, skill, margin)
             }
-        } else if let Some(ref modifier) = self.modifier {
-            // Not a versus roll, output with modifier.
-            format!("{}d{}{}{}: {:>3} {:?}",
-                self.dice, self.sides, modifier, self.value, sum, rolls)
         } else {
-            // Bog-standard normal die roll.
-            format!("{}d{}: {:>3} {:?}", self.dice, self.sides, sum, rolls)
+            format!("{}: {:>3} {:?}", self, sum, rolls)
         }
     }
 
@@ -128,6 +124,22 @@ impl DiceExpr {
     }
 }
 
+impl Display for DiceExpr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.rolls > 1 {
+            write!(f, "{}x", self.rolls)?;
+        }
+
+        write!(f, "{}d{}", self.dice, self.sides)?;
+
+        if let Some(ref m) = self.modifier {
+            write!(f, "{}{}", m, self.value)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct DiceVec(Vec<DiceExpr>);
 
@@ -139,6 +151,7 @@ impl DiceVec {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ParseDiceError;
+
 impl Display for ParseDiceError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         "provided string did not contain a valid dice expression".fmt(f)
@@ -148,7 +161,7 @@ impl Display for ParseDiceError {
 impl FromStr for DiceVec {
     type Err = ParseDiceError;
 
-    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         lazy_static! {
             static ref RE: Regex = Regex::new(r"(?x)
                 (?: (?P<rolls>\d+) [*x] )?                         # repeated rolls
@@ -203,5 +216,14 @@ impl FromStr for DiceVec {
         } else {
             Ok(dice)
         }
+    }
+}
+
+impl Display for DiceVec {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.iter().map(|e| e.to_string())
+                     .collect::<Vec<String>>()
+                     .join(", ")
+                     .fmt(f)
     }
 }

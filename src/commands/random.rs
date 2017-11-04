@@ -10,26 +10,18 @@ pub fn roll_and_send(
     user_id: UserId,
     set: DiceVec,
 ) -> Result<Message> {
-    let prefix = format!(
-        "**{} rolled:**",
-        get_display_name_from_cache(channel_id, user_id)?
-    );
-    let results = set.roll();
+    let name = get_display_name_from_cache(channel_id, user_id)?;
+    let sent = channel_id.send_message(|m| { m
+        .content(format!("**{} rolled {}:**\n```\n{}\n```",
+                         name,
+                         set.to_string(),
+                         set.roll().join("\n")))
+        .reactions(vec!['🎲'])
+    })?;
 
-    let message = if results.len() == 1 {
-        channel_id.say(&format!("{} `{}`", prefix, results[0]))?
-    } else {
-        channel_id.say(&format!(
-            "{}\n```\n{}\n```",
-            prefix,
-            results.join("\n")
-        ))?
-    };
+    map.insert(sent.id, set);
 
-    map.insert(message.id, set);
-    message.react('🎲')?;
-
-    Ok(message)
+    Ok(sent)
 }
 
 command!(roll(ctx, msg, args) {

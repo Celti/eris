@@ -27,22 +27,31 @@ impl EventHandler for Handler {
             ReactionType::Unicode(ref x) if x == "🎲" => {
                 let mut data = ctx.data.lock();
 
-                let mut map = if let Some(m) = data.get_mut::<DiceMessages>() {
-                    m
+                let mut map = if let Some(map) = data.get_mut::<DiceMessages>() {
+                    map
                 } else {
-                    info!("map is not initialised, returning.");
+                    info!("Map is not initialised, returning.");
                     return ();
                 };
 
-                let set = if let Some(s) = map.get(&re.message_id) {
-                    s.clone()
+                let dice = if let Some(dice) = map.get(&re.message_id) {
+                    dice.clone()
                 } else {
                     info!("Message is not in set, returning.");
                     return ();
                 };
 
-                if let Err(e) = roll_and_send(map, re.channel_id, re.user_id, set) {
-                    error!("failed to repeat die roll: {}", e);
+                if let Err(e) = roll_and_send(map, re.channel_id, re.user_id, dice) {
+                    error!("Failed to repeat die roll: {}", e);
+                } else {
+                    match re.channel_id.message(re.message_id) {
+                        Ok(m) => {
+                            if let Err(e) = m.delete_reactions() {
+                                warn!("Failed to clear reactions: {}", e);
+                            }
+                        }
+                        Err(e) => warn!("Failed to get original message: {}", e),
+                    }
                 }
             }
             r => debug!("Unknown ReactionType: {:?}", r),
@@ -58,13 +67,14 @@ impl Key for DiceMessages {
 pub fn get_display_name_from_cache(channel_id: ChannelId, user_id: UserId) -> Result<String> {
     let cache = CACHE.read().unwrap();
 
-    let channel = cache.guild_channel(channel_id).ok_or(
-        "channel is not in cache",
-    )?;
+    // If this is a guild channel and the user is a member...
+    if let Some(channel) = cache.guild_channel(channel_id) {
+        if let Some(member) = cache.member(channel.read().unwrap().guild_id, user_id) {
+            // ...use their display name...
+            return Ok(member.display_name().into_owned());
+        }
+    }
 
-    let member = cache
-        .member(channel.read().unwrap().guild_id, user_id)
-        .ok_or("member is not in cache")?;
-
-    Ok(member.display_name().into_owned())
+    // ...otherwise, just use their username.
+    Ok(user_id.get()?.name)
 }
