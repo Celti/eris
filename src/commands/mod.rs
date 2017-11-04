@@ -1,4 +1,5 @@
-pub mod calc;
-pub mod gurps;
-pub mod random;
-pub mod toys;
+pub(crate) mod calc;
+pub(crate) mod gurps;
+pub(crate) mod meta;
+pub(crate) mod random;
+pub(crate) mod toys;

@@ -1,7 +1,7 @@
 [package]
 name = "eris"
-version = "0.3.3"
-authors = ["Patrick Burroughs (Celti) <celti@celti.name>"]
+version = "0.4.0"
+authors = ["Celti Burroughs <celti@celti.name>"]
 
 [dependencies]
 chrono = "0.4"
@@ -10,6 +10,7 @@ fnorder = "1.0"
 lazy_static = "0.2"
 log = "0.3"
 maplit = "1.0"
+matches = "0.1"
 rand = "0.3"
 regex = "0.2"
 rink = "0.4"
