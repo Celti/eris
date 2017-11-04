@@ -11,12 +11,13 @@ pub fn roll_and_send(
     set: DiceVec,
 ) -> Result<Message> {
     let name = get_display_name_from_cache(channel_id, user_id)?;
-    let sent = channel_id.send_message(|m| { m
-        .content(format!("**{} rolled {}:**\n```\n{}\n```",
-                         name,
-                         set.to_string(),
-                         set.roll().join("\n")))
-        .reactions(vec!['🎲'])
+    let sent = channel_id.send_message(|m| {
+        m.content(format!(
+            "**{} rolled {}:**\n```\n{}\n```",
+            name,
+            set.to_string(),
+            set.roll().join("\n")
+        )).reactions(vec!['🎲'])
     })?;
 
     map.insert(sent.id, set);

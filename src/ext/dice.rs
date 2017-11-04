@@ -1,8 +1,4 @@
-use rand;
-use rand::distributions::{IndependentSample, Range};
-use regex::Regex;
-use std::fmt;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::str::FromStr;
 use std::string::ToString;
 
@@ -20,15 +16,18 @@ pub struct DiceExpr {
 
 impl DiceExpr {
     fn roll_once(&self) -> String {
-        let mut rng = rand::thread_rng();
-        let mut rolls: Vec<i64> = Vec::new();
+        use rand::distributions::{IndependentSample, Range};
+
+        let mut rng = ::rand::thread_rng();
         let die = Range::new(1, self.sides + 1);
+
+        let mut rolls: Vec<i64> = Vec::with_capacity(self.dice as usize);
 
         for _ in 0..self.dice {
             rolls.push(die.ind_sample(&mut rng));
         }
 
-        let mut sum: i64 = rolls.iter().fold(0, |s, x| s + x);
+        let mut sum = rolls.iter().fold(0, |s, x| s + x);
 
         if let Some(ref m) = self.modifier {
             match m.as_str() {
@@ -91,7 +90,7 @@ impl DiceExpr {
         {
             // Generic d20 system success roll.
             let margin = sum - self.target; // Roll over.
-            let skill = format!("{}-{}", self.tag.trim(), self.target);
+            let skill = format!("{}{}", self.tag.trim(), self.target);
 
             if margin < 0 {
                 format!("{:>2} vs {}: Failure by {}", sum, skill, margin.abs())
@@ -136,6 +135,10 @@ impl Display for DiceExpr {
             write!(f, "{}{}", m, self.value)?;
         }
 
+        if self.versus {
+            write!(f, " vs {}-{}", self.tag.trim(), self.target)?;
+        }
+
         Ok(())
     }
 }
@@ -162,6 +165,8 @@ impl FromStr for DiceVec {
     type Err = ParseDiceError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use regex::Regex;
+
         lazy_static! {
             static ref RE: Regex = Regex::new(r"(?x)
                 (?: (?P<rolls>\d+) [*x] )?                         # repeated rolls
@@ -221,9 +226,11 @@ impl FromStr for DiceVec {
 
 impl Display for DiceVec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.iter().map(|e| e.to_string())
-                     .collect::<Vec<String>>()
-                     .join(", ")
-                     .fmt(f)
+        self.0
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+            .fmt(f)
     }
 }
