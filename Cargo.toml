@@ -18,7 +18,5 @@ rink = "0.4"
 serenity = "0.4"
 typemap = "0.3"
 
-clippy = {version = "*", optional = true}
-
 [features]
 default = []

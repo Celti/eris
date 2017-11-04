@@ -1,6 +1,4 @@
 #![recursion_limit = "1024"]
-#![cfg_attr(build="debug", feature(plugin))]
-#![cfg_attr(build="debug", plugin(clippy))]
 
 // Core.
 #[macro_use]
