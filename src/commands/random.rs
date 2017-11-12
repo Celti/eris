@@ -1,16 +1,19 @@
-use eris::*;
 use ext::dice::DiceVec;
 use rand::{self, Rng};
+use serenity::model::*;
 use std::collections::HashMap;
 use std::str::FromStr;
+use failure::Error;
+use utils;
+use data::DiceMessages;
 
 pub fn roll_and_send(
     map: &mut HashMap<MessageId, DiceVec>,
     channel_id: ChannelId,
     user_id: UserId,
     set: DiceVec,
-) -> Result<Message> {
-    let name = get_display_name_from_cache(channel_id, user_id)?;
+) -> Result<Message, Error> {
+    let name = utils::cached_display_name(channel_id, user_id)?;
     let sent = channel_id.send_message(|m| {
         m.content(format!(
             "**{} rolled {}:**\n```\n{}\n```",
@@ -55,7 +58,8 @@ command!(flip(_ctx, msg) {
 
 command!(choose(_ctx, msg, args) {
     let choices = args.list::<String>()?;
-    msg.reply(rand::thread_rng().choose(&choices).unwrap())?;
+    msg.reply(rand::thread_rng().choose(&choices)
+        .unwrap_or(&String::from("do you really need me for that decision?")))?;
 });
 
 command!(eight(_ctx, msg) {

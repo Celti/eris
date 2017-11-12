@@ -1,4 +1,6 @@
-fn get_strength(st: f64) -> String {
+command!(st(_ctx, msg, arg) {
+    let st = arg.single::<f64>()?;
+
     let sw_adds;
     let mut sw_dice;
     let sw_frac;
@@ -85,7 +87,7 @@ fn get_strength(st: f64) -> String {
         };
     }
 
-    format!(
+    msg.reply(&format!(
         "**ST** {}: **Basic Lift** {}; **Damage** *Thr* {}d{}, *Sw* {}d{}",
         st,
         lift,
@@ -93,9 +95,5 @@ fn get_strength(st: f64) -> String {
         thr_adds,
         sw_dice,
         sw_adds
-    )
-}
-
-command!(st(_ctx, msg, arg) {
-    msg.reply(&get_strength(arg.single::<f64>()?))?;
+    ))?;
 });

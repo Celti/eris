@@ -1,44 +1,45 @@
-pub use errors::*;
-pub use serenity::model::*;
-pub use serenity::prelude::*;
-
-use serenity::CACHE;
+use serenity::model::*;
+use serenity::prelude::*;
 use serenity::utils;
-
-use std::collections::HashMap;
-use typemap::Key;
-
-use ext::dice::DiceVec;
-use commands::random::roll_and_send;
 
 pub struct Handler;
 impl EventHandler for Handler {
     fn on_ready(&self, ctx: Context, ready: Ready) {
-        ctx.set_game_name("dice with the universe.");
-        info!("Connected as {}", ready.user.name);
+        if let Some(s) = ready.shard {
+            info!("Logged in as '{}' on {}/{}", ready.user.name, s[0], s[1]);
+        } else {
+            info!("Logged in as '{}'", ready.user.name);
+        }
+
+        // TODO get name from persistent store
+        ctx.set_game_name("to the crowd.");
     }
 
     fn on_reaction_add(&self, ctx: Context, re: Reaction) {
-        if utils::with_cache(|cache| cache.user.id == re.user_id) {
-            return ();
-        }
+        use commands::random::roll_and_send;
+        use data::DiceMessages;
 
+        // Don't respond to our own reactions.
+        if utils::with_cache(|cache| cache.user.id == re.user_id) { return; }
+
+        // Reaction matcher.
         match re.emoji {
+            // Reroll dice.
             ReactionType::Unicode(ref x) if x == "🎲" => {
                 let mut data = ctx.data.lock();
 
                 let mut map = if let Some(map) = data.get_mut::<DiceMessages>() {
                     map
                 } else {
-                    info!("Map is not initialised, returning.");
-                    return ();
+                    warn!("DiceMessages map is not initialised.");
+                    return;
                 };
 
                 let dice = if let Some(dice) = map.get(&re.message_id) {
                     dice.clone()
                 } else {
-                    info!("Message is not in set, returning.");
-                    return ();
+                    info!("Message is not in DiceMessages map.");
+                    return;
                 };
 
                 if let Err(e) = roll_and_send(map, re.channel_id, re.user_id, dice) {
@@ -54,27 +55,8 @@ impl EventHandler for Handler {
                     }
                 }
             }
+            // An unconfigured reaction type.
             r => debug!("Unknown ReactionType: {:?}", r),
         }
     }
-}
-
-pub struct DiceMessages;
-impl Key for DiceMessages {
-    type Value = HashMap<MessageId, DiceVec>;
-}
-
-pub fn get_display_name_from_cache(channel_id: ChannelId, user_id: UserId) -> Result<String> {
-    let cache = CACHE.read().unwrap();
-
-    // If this is a guild channel and the user is a member...
-    if let Some(channel) = cache.guild_channel(channel_id) {
-        if let Some(member) = cache.member(channel.read().unwrap().guild_id, user_id) {
-            // ...use their display name...
-            return Ok(member.display_name().into_owned());
-        }
-    }
-
-    // ...otherwise, just use their username.
-    Ok(user_id.get()?.name)
 }

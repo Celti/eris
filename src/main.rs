@@ -1,81 +1,74 @@
 #![recursion_limit = "1024"]
 
-// Core.
-#[macro_use]
-extern crate serenity;
+#[macro_use] extern crate failure_derive;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate log;
+#[macro_use] extern crate maplit;
+#[macro_use] extern crate matches;
+#[macro_use] extern crate serenity;
 
-// Tools.
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate maplit;
-#[macro_use]
-extern crate matches;
-extern crate rand;
+extern crate chrono;
+extern crate ddate;
+extern crate env_logger;
+extern crate failure;
+extern crate fnorder;
+extern crate rand; // TODO use ring instead
 extern crate regex;
+extern crate rink;
 extern crate typemap;
 
-// Logger.
-#[macro_use]
-extern crate log;
-extern crate chrono;
-
-// Modules.
-extern crate ddate;
-extern crate fnorder;
-extern crate rink;
-
 mod commands;
+mod data;
 mod eris;
-mod errors;
 mod ext;
-mod logger;
+mod utils;
 
-use errors::*;
+use failure::Error;
+use serenity::prelude::*;
 
 fn main() {
-    logger::init(log::LogLevel::Info).unwrap();
+    utils::init_env_logger();
 
-    if let Err(ref e) = run() {
-        use error_chain::ChainedError;
-        error!("{}", e.display_chain());
+    if let Err(ref err) = run() {
+        error!("Application error: {}", err);
         std::process::exit(1);
     }
 }
 
-fn run() -> Result<()> {
-    use eris::*;
+fn run() -> Result<(), Error> {
+    // TODO write our own help command builder.
     use serenity::framework::standard::help_commands;
 
-    let token = std::env::var("DISCORD_TOKEN").chain_err(
-        || "could not get Discord authentication token",
-    )?;
-
-    let mut client = Client::new(&token, Handler);
-
+    let token = std::env::var("DISCORD_TOKEN")?;
+    let mut client = Client::new(&token, eris::Handler);
     let info = serenity::http::get_current_application_info()?;
 
     client.with_framework(
         serenity::framework::StandardFramework::new()
             .configure(|c| {
-                c
-            .allow_dm(true)
-            .allow_whitespace(false)
-            // .blocked_guilds(hashset!{GuildId(1), GuildId(2)})
-            // .blocked_users(hashset!{UserId(1), UserId(2)})
-            .depth(5)
-            // .disabled_commands(hashset!{"foo", "fnord"})
-            // .dynamic_prefix(|_ctx, _msg| Some(String::from("!")))
-            .ignore_bots(true)
-            .ignore_webhooks(true)
-            .on_mention(true)
-            .owners(hashset!{info.owner.id})
-            .prefixes(vec![".", "!", "/"])
-            .delimiters(vec![", ", ",", ", or ", " or ", " "])
-            .case_insensitivity(true)
+                c.allow_dm(true)
+                .allow_whitespace(false)
+                // .blocked_guilds(hashset!{GuildId(1), GuildId(2)})
+                // .blocked_users(hashset!{UserId(1), UserId(2)})
+                .depth(5)
+                // .disabled_commands(hashset!{"foo", "fnord"})
+                //.dynamic_prefix(utils::select_prefix)
+                .ignore_bots(true)
+                .ignore_webhooks(true)
+                .on_mention(true)
+                .owners(hashset!{info.owner.id})
+                .prefix(".")
+                //.prefixes(vec![".", "!", "/"])
+                .delimiters(vec![", or ", ", ", ",", " or ", " "])
+                .case_insensitivity(true)
             })
+
+            .after(|_ctx, _msg, _cmd, res| {
+                if let Err(why) = res {
+                    error!("Error sending message: {:?}", why);
+                }
+            })
+
             .group("Meta", |g| {
                 g.command("help", |c| {
                     c.desc("Displays help for available commands.")
@@ -99,36 +92,37 @@ fn run() -> Result<()> {
                             .owners_only(true)
                     })
             })
+
             .group("Noisemakers", |g| {
                 g.bucket("noise")
                     .command("fnord", |c| {
-                        c.desc("Transmits a message from the conspiracy.").exec(
-                            commands::toys::fnord,
-                        )
+                        c.desc("Transmits a message from the conspiracy.")
+                            .exec(commands::toys::fnord)
                     })
                     .command("trade", |c| {
-                        c.desc("Sends out a kitten trading caravan.").exec(
-                            commands::toys::trade,
-                        )
+                        c.desc("Sends out a kitten trading caravan.")
+                            .exec(commands::toys::trade)
                     })
                     .command("ddate", |c| {
                         c.desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
                             .exec(commands::toys::ddate)
                     })
             })
+
             .group("Randomizers", |g| {
                 g.command("choose", |c| {
-                    c.batch_known_as(vec!["decide", "pick"])
-                        .desc("Chooses between multiple options.")
+                    c.desc("Chooses between multiple options.")
+                        .batch_known_as(vec!["decide", "pick"])
                         .example("Option A, Option B, or Option C")
                         .exec(commands::random::choose)
                 }).command("ask", |c| {
-                        c.batch_known_as(vec!["eight", "8ball"])
-                            .desc("Ask the Magic 8 Ball a yes-or-no question.")
+                        c.desc("Ask the Magic 8 Ball a yes-or-no question.")
+                            .batch_known_as(vec!["eight", "8ball"])
                             .exec(commands::random::eight)
                     })
                     .command("flip", |c| {
-                        c.exec(commands::random::flip).desc("Flip a coin.")
+                        c.desc("Flip a coin.")
+                            .exec(commands::random::flip)
                     })
                     .command("roll", |c| {
                         c.desc("Roll virtual dice in dice algebra notation.")
@@ -150,24 +144,23 @@ fn run() -> Result<()> {
                             )
                     })
             })
+
             .group("GURPS", |g| {
                 g.command("st", |c| {
                     c.desc("Calculate Basic Lift and Damage for a given ST.")
                         .exec(commands::gurps::st)
                 })
             })
+
             .group("Tools", |g| {
                 g.command("calc", |c| {
                     c.desc(
                         "A unit-aware precision calculator using Rink.\
-                       See also: https://github.com/tiffany352/rink-rs/wiki/Rink-Manual",
+                         See also: https://github.com/tiffany352/rink-rs/wiki/Rink-Manual",
                     ).exec(commands::calc::calc)
                 })
             }),
     );
 
-    match client.start() {
-        Ok(()) | Err(serenity::Error::Client(ClientError::Shutdown)) => Ok(()),
-        Err(e) => bail!(e),
-    }
+    Ok(client.start()?)
 }

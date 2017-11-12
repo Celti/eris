@@ -6,7 +6,11 @@ authors = ["Celti Burroughs <celti@celti.name>"]
 [dependencies]
 chrono = "0.4"
 ddate = "0.4"
-error-chain = "0.11"
+env_logger = "0.4"
+failure = { git = "https://github.com/withoutboats/failure/" }
+failure_derive = { git = "https://github.com/withoutboats/failure_derive/" }
+#failure = "0.1"
+#failure_derive = "0.1"
 fnorder = "1.0"
 lazy_static = "0.2"
 log = "0.3"
@@ -19,4 +23,5 @@ serenity = "0.4"
 typemap = "0.3"
 
 [features]
+
 default = []
