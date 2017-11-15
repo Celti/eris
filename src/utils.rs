@@ -1,7 +1,6 @@
-use serenity::CACHE;
-use serenity::Result;
-use serenity::model::*;
-//use serenity::prelude::*;
+use serenity::{CACHE, Result};
+use serenity::model::{ChannelId, Message, UserId};
+use serenity::client::Context;
 
 pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<String> {
     let cache = CACHE.read().unwrap();
@@ -43,11 +42,12 @@ pub fn init_env_logger() {
     builder.init().unwrap();
 }
 
-/*
 pub fn select_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
-    match msg.guild_id() {
-        None => None,
-        Some(_) => Some(String::from(".")),
-    }
+    use data::GuildPrefixes;
+    use std::collections::HashMap;
+
+    let mut data = ctx.data.lock();
+    let map = data.entry::<GuildPrefixes>().or_insert(HashMap::default());
+
+    map.get(&msg.guild_id()?).cloned()
 }
-*/

@@ -27,6 +27,7 @@ mod utils;
 
 use failure::Error;
 use serenity::prelude::*;
+use serenity::model::*;
 
 fn main() {
     utils::init_env_logger();
@@ -60,7 +61,7 @@ fn run() -> Result<(), Error> {
                 // .blocked_users(hashset!{UserId(1), UserId(2)})
                 .depth(5)
                 // .disabled_commands(hashset!{"foo", "fnord"})
-                //.dynamic_prefix(utils::select_prefix)
+                .dynamic_prefix(utils::select_prefix)
                 .ignore_bots(true)
                 .ignore_webhooks(true)
                 .on_mention(true)
@@ -89,6 +90,13 @@ fn run() -> Result<(), Error> {
                     .known_as("play")
                     .min_args(1)
                     .owners_only(true)
+                })
+                .command("prefix", |c| { c
+                    .desc("Change the bot's command prefix on the current guild.")
+                    .exec(commands::meta::prefix)
+                    .guild_only(true)
+                    .min_args(1)
+                    .required_permissions(Permissions::ADMINISTRATOR)
                 })
                 .command("quit", |c| { c
                     .desc("Disconnect the bot from Discord.")
