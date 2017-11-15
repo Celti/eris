@@ -160,7 +160,7 @@ fn run() -> Result<(), Error> {
                         
                         For minimal usage, `roll` alone rolls 3d6.
                         
-                        See also: https://en.wikipedia.org/wiki/Dice_notation `​"
+                        See also: https://en.wikipedia.org/wiki/Dice_notation `\u{200B}"
                     ))
                 })
             })
@@ -178,7 +178,7 @@ fn run() -> Result<(), Error> {
                     .desc("A unit-aware precision calculator using Rink.")
                     .exec(commands::calc::calc)
                     .min_args(1)
-                    .usage("expr`\nFor details, see https://github.com/tiffany352/rink-rs/wiki/Rink-Manual `​")
+                    .usage("expr`\nFor details, see https://github.com/tiffany352/rink-rs/wiki/Rink-Manual `\u{200B}")
                 })
             }),
     );
