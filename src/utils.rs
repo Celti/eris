@@ -1,9 +1,9 @@
-use failure::Error;
 use serenity::CACHE;
+use serenity::Result;
 use serenity::model::*;
 //use serenity::prelude::*;
 
-pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<String, Error> {
+pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<String> {
     let cache = CACHE.read().unwrap();
 
     // If this is a guild channel and the user is a member...

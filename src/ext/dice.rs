@@ -144,22 +144,21 @@ impl Display for DiceExpr {
 }
 
 #[derive(Clone, Debug)]
-pub struct DiceVec(Vec<DiceExpr>);
+pub struct DiceVec{ inner: Vec<DiceExpr> }
 
 impl DiceVec {
+    pub fn new() -> Self {
+        DiceVec { inner: Vec::new() }
+    }
+
     pub fn roll(&self) -> Vec<String> {
-        self.0.iter().flat_map(|e| e.roll()).collect()
+        self.inner.iter().flat_map(|e| e.roll()).collect()
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Fail)]
+#[fail(display = "provided string did not contain a valid dice expression")]
 pub struct ParseDiceError;
-
-impl Display for ParseDiceError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        "provided string did not contain a valid dice expression".fmt(f)
-    }
-}
 
 impl FromStr for DiceVec {
     type Err = ParseDiceError;
@@ -178,10 +177,10 @@ impl FromStr for DiceVec {
                 ").unwrap();
         }
 
-        let mut dice: DiceVec = DiceVec(Vec::new());
+        let mut dice: DiceVec = DiceVec::new();
 
         for cap in RE.captures_iter(s) {
-            dice.0.push(DiceExpr {
+            dice.inner.push(DiceExpr {
                 rolls: cap.name("rolls")
                     .map(|c| c.as_str())
                     .unwrap_or("1")
@@ -216,7 +215,7 @@ impl FromStr for DiceVec {
             });
         }
 
-        if dice.0.is_empty() {
+        if dice.inner.is_empty() {
             Err(ParseDiceError)
         } else {
             Ok(dice)
@@ -226,7 +225,7 @@ impl FromStr for DiceVec {
 
 impl Display for DiceVec {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0
+        self.inner
             .iter()
             .map(|e| e.to_string())
             .collect::<Vec<_>>()

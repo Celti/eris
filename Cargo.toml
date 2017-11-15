@@ -12,6 +12,7 @@ failure_derive = { git = "https://github.com/withoutboats/failure_derive/" }
 #failure = "0.1"
 #failure_derive = "0.1"
 fnorder = "1.0"
+indoc = "0.2"
 lazy_static = "0.2"
 log = "0.3"
 maplit = "1.0"
