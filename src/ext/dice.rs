@@ -1,3 +1,4 @@
+use rand::{self, Rng};
 use std::fmt::{self, Display};
 use std::str::FromStr;
 use std::string::ToString;
@@ -15,18 +16,8 @@ pub struct DiceExpr {
 }
 
 impl DiceExpr {
-    fn roll_once(&self) -> String {
-        use rand::distributions::{IndependentSample, Range};
-
-        let mut rng = ::rand::thread_rng();
-        let die = Range::new(1, self.sides + 1);
-
-        let mut rolls: Vec<i64> = Vec::with_capacity(self.dice as usize);
-
-        for _ in 0..self.dice {
-            rolls.push(die.ind_sample(&mut rng));
-        }
-
+    fn roll_once<R>(&self, mut rng: &mut R) -> String where R: Rng {
+        let mut rolls = rand::sample(&mut rng, 1..self.sides+1, self.dice as usize);
         let mut sum = rolls.iter().fold(0, |s, x| s + x);
 
         if let Some(ref m) = self.modifier {
@@ -112,11 +103,11 @@ impl DiceExpr {
         }
     }
 
-    fn roll(&self) -> Vec<String> {
+    fn roll<R>(&self, mut rng: &mut R) -> Vec<String> where R: Rng {
         let mut results = Vec::with_capacity(self.rolls as usize);
 
         for _ in 0..self.rolls {
-            results.push(self.roll_once());
+            results.push(self.roll_once(&mut rng));
         }
 
         results
@@ -151,12 +142,12 @@ impl DiceVec {
         DiceVec { inner: Vec::new() }
     }
 
-    pub fn roll(&self) -> Vec<String> {
-        self.inner.iter().flat_map(|e| e.roll()).collect()
+    pub fn roll<R>(&self, mut rng: &mut R) -> Vec<String> where R: Rng {
+        self.inner.iter().flat_map(|e| e.roll(&mut rng)).collect()
     }
 }
 
-#[derive(Clone, Copy, Debug, Fail)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Fail, Hash, Ord, PartialOrd)]
 #[fail(display = "provided string did not contain a valid dice expression")]
 pub struct ParseDiceError;
 
@@ -185,23 +176,23 @@ impl FromStr for DiceVec {
                     .map(|c| c.as_str())
                     .unwrap_or("1")
                     .parse()
-                    .unwrap(),
+                    .unwrap_or(1),
                 dice: cap.name("dice")
                     .map(|c| c.as_str())
                     .unwrap_or("3")
                     .parse()
-                    .unwrap(),
+                    .unwrap_or(3),
                 sides: cap.name("sides")
                     .map(|c| c.as_str())
                     .unwrap_or("6")
                     .parse()
-                    .unwrap(),
+                    .unwrap_or(6),
                 modifier: cap.name("modifier").map(|c| c.as_str().to_string()),
                 value: cap.name("value")
                     .map(|c| c.as_str())
                     .unwrap_or("0")
                     .parse()
-                    .unwrap(),
+                    .unwrap_or(0),
                 versus: cap.name("vs").map(|c| c.as_str()).is_some(),
                 tag: cap.name("tag")
                     .map(|c| c.as_str())
@@ -211,7 +202,7 @@ impl FromStr for DiceVec {
                     .map(|c| c.as_str())
                     .unwrap_or("0")
                     .parse()
-                    .unwrap(),
+                    .unwrap_or(0),
             });
         }
 
