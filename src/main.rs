@@ -2,7 +2,7 @@
 #![feature(match_default_bindings)]
 #![feature(try_trait)]
 
-#[macro_use] extern crate failure_derive;
+#[macro_use] extern crate failure;
 #[macro_use] extern crate indoc;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
@@ -13,7 +13,6 @@
 extern crate chrono;
 extern crate ddate;
 extern crate env_logger;
-extern crate failure;
 extern crate fnorder;
 extern crate parking_lot;
 extern crate rand;
@@ -37,10 +36,12 @@ fn main() {
     if let Err(ref err) = run() {
         error!("Application error: {}", err);
 
-        let mut chain = err.cause().cause();
-        while let Some(cause) = chain {
+        for cause in err.causes().skip(1) {
             error!("Caused by: {}", cause);
-            chain = cause.cause();
+        }
+
+        if let Some(backtrace) = err.backtrace() {
+            info!("Backtrace: {:?}", backtrace);
         }
 
         std::process::exit(1);

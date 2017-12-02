@@ -7,22 +7,16 @@ authors = ["Celti Burroughs <celti@celti.name>"]
 chrono = "0.4"
 ddate = "0.4"
 env_logger = "0.4"
-failure = { git = "https://github.com/withoutboats/failure/" }
-failure_derive = { git = "https://github.com/withoutboats/failure_derive/" }
-#failure = "0.1"
-#failure_derive = "0.1"
+failure = "0.1"
 fnorder = "1.0"
 indoc = "0.2"
 lazy_static = "0.2"
 log = "0.3"
 maplit = "1.0"
 matches = "0.1"
+parking_lot = "0.4"
 rand = "0.3"
 regex = "0.2"
 rink = "0.4"
 serenity = "0.4"
 typemap = "0.3"
-
-[features]
-
-default = []
