@@ -1,13 +1,11 @@
-use chrono::Utc;
-use ddate::DiscordianDate;
-
 command!(fnord(_ctx, msg) {
     msg.channel_id.say(&::fnorder::fnorder())?;
 });
 
 command!(trade(_ctx, msg) {
-    use rand::Rng;
-    let mut rng = ::rand::thread_rng();
+    use rand::{self, Rng};
+
+    let mut rng = rand::thread_rng();
 
     match rng.gen_range(1, 125) {
          0...25 => msg.channel_id.say("Lizards think your kittens are adorable.")?,
@@ -24,5 +22,8 @@ command!(trade(_ctx, msg) {
 });
 
 command!(ddate(_ctx, msg) {
+    use chrono::Utc;
+    use ddate::DiscordianDate;
+
     msg.channel_id.say(&format!("Today is {}", Utc::today().to_poee()))?;
 });

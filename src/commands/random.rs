@@ -7,19 +7,17 @@ use failure::Error;
 use utils;
 use data::DiceMessages;
 
-pub fn roll_and_send(
-    map: &mut HashMap<MessageId, DiceVec>,
-    channel_id: ChannelId,
-    user_id: UserId,
-    set: DiceVec,
-) -> Result<Message, Error> {
+pub fn roll_and_send(map: &mut HashMap<MessageId, DiceVec>,
+                     channel_id: ChannelId,
+                     user_id: UserId,
+                     set: DiceVec) -> Result<Message, Error> {
     let name = utils::cached_display_name(channel_id, user_id)?;
     let sent = channel_id.send_message(|m| {
         m.content(format!(
             "**{} rolled {}:**\n```\n{}\n```",
             name,
             set.to_string(),
-            set.roll().join("\n")
+            set.roll(&mut rand::thread_rng()).join("\n")
         )).reactions(vec!['🎲'])
     })?;
 
@@ -39,7 +37,8 @@ command!(roll(ctx, msg, args) {
     };
 
     let mut data = ctx.data.lock();
-    let mut map = data.entry::<DiceMessages>().or_insert(HashMap::default());
+    let mut map = data.get_mut::<DiceMessages>()
+        .ok_or("ShareMap did not contain a value")?;
 
     roll_and_send(map, msg.channel_id, msg.author.id, set)?;
 });
@@ -57,9 +56,7 @@ command!(flip(_ctx, msg) {
 });
 
 command!(choose(_ctx, msg, args) {
-    let choices = args.list::<String>()?;
-    msg.reply(rand::thread_rng().choose(&choices)
-        .unwrap_or(&String::from("do you really need me for that decision?")))?;
+    msg.reply(rand::thread_rng().choose(&args.list::<String>()?).unwrap())?;
 });
 
 command!(eight(_ctx, msg) {
