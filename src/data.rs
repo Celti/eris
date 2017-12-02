@@ -1,4 +1,6 @@
+use eris::Handler;
 use ext::dice::DiceVec;
+use serenity::Client;
 use serenity::model::{GuildId, MessageId};
 use std::collections::HashMap;
 use typemap::Key;
@@ -15,3 +17,11 @@ impl Key for GuildPrefixes {
 
 // TODO persistent store
 // TODO dump the ShareMap to persistent store on destruction, load on ready
+// TODO populate owners, delimiters from store
+
+pub fn init(client: &mut Client<Handler>) {
+    let mut data = client.data.lock();
+
+    data.entry::<DiceMessages>().or_insert(HashMap::default());
+    data.entry::<GuildPrefixes>().or_insert(HashMap::default());
+}

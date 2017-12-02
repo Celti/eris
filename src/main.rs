@@ -1,5 +1,6 @@
 #![recursion_limit = "1024"]
 #![feature(match_default_bindings)]
+#![feature(try_trait)]
 
 #[macro_use] extern crate failure_derive;
 #[macro_use] extern crate indoc;
@@ -14,7 +15,8 @@ extern crate ddate;
 extern crate env_logger;
 extern crate failure;
 extern crate fnorder;
-extern crate rand; // TODO use ring instead
+extern crate parking_lot;
+extern crate rand;
 extern crate regex;
 extern crate rink;
 extern crate typemap;
@@ -46,10 +48,10 @@ fn main() {
 }
 
 fn run() -> Result<(), Error> {
-    use serenity::framework::standard::help_commands;
+    let mut client = Client::new(&std::env::var("DISCORD_TOKEN")?, eris::Handler);
 
-    let token = std::env::var("DISCORD_TOKEN")?;
-    let mut client = Client::new(&token, eris::Handler);
+    data::init(&mut client);
+
     let info = serenity::http::get_current_application_info()?;
 
     client.with_framework(
@@ -81,7 +83,7 @@ fn run() -> Result<(), Error> {
             .group("Meta", |g| { g
                 .command("help", |c| { c
                     .desc("Displays help for available commands.")
-                    .exec_help(help_commands::with_embeds)
+                    .exec_help(serenity::framework::standard::help_commands::with_embeds)
                     .known_as("halp")
                 })
                 .command("playing", |c| { c
