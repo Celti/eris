@@ -1,16 +1,17 @@
+use data::DiceMessages;
 use ext::dice::DiceVec;
 use rand::{self, Rng};
-use serenity::model::*;
+use serenity::Result;
+use serenity::model::channel::Message;
+use serenity::model::id::{ChannelId, MessageId, UserId};
 use std::collections::HashMap;
 use std::str::FromStr;
-use failure::Error;
 use utils;
-use data::DiceMessages;
 
 pub fn roll_and_send(map: &mut HashMap<MessageId, DiceVec>,
                      channel_id: ChannelId,
                      user_id: UserId,
-                     set: DiceVec) -> Result<Message, Error> {
+                     set: DiceVec) -> Result<Message> {
     let name = utils::cached_display_name(channel_id, user_id)?;
     let sent = channel_id.send_message(|m| {
         m.content(format!(
@@ -32,8 +33,7 @@ command!(roll(ctx, msg, args) {
     let set = if let Ok(dice) = DiceVec::from_str(&expr) { dice } else {
         // Ugly hack to retry failed parsing prefixed with '3d6'.
         // This allows, e.g. `!roll vs 10` to parse as `!roll 3d6 vs 10`
-        expr = "3d6 ".to_string() + &expr;
-        DiceVec::from_str(&expr).unwrap()
+        DiceVec::from_str(&("3d6 ".to_string() + &expr)).unwrap()
     };
 
     let mut data = ctx.data.lock();
@@ -56,7 +56,7 @@ command!(flip(_ctx, msg) {
 });
 
 command!(choose(_ctx, msg, args) {
-    msg.reply(rand::thread_rng().choose(&args.list::<String>()?).unwrap())?;
+    msg.reply(rand::thread_rng().choose(&args.multiple::<String>()?).unwrap())?;
 });
 
 command!(eight(_ctx, msg) {

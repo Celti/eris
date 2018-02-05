@@ -1,4 +1,4 @@
-use rand::{self, Rng};
+use rand::{Rng, distributions::{IndependentSample, Range}};
 use std::fmt::{self, Display};
 use std::str::FromStr;
 use std::string::ToString;
@@ -17,7 +17,14 @@ pub struct DiceExpr {
 
 impl DiceExpr {
     fn roll_once<R>(&self, mut rng: &mut R) -> String where R: Rng {
-        let mut rolls = rand::sample(&mut rng, 1..self.sides+1, self.dice as usize);
+        let die = Range::new(1, self.sides + 1);
+
+        let mut rolls: Vec<i64> = Vec::with_capacity(self.dice as usize);
+
+        for _ in 0 .. self.dice {
+            rolls.push(die.ind_sample(&mut rng));
+        }
+
         let mut sum = rolls.iter().fold(0, |s, x| s + x);
 
         if let Some(ref m) = self.modifier {
