@@ -1,24 +1,24 @@
-use data::DiceMessages;
 use ext::dice::DiceVec;
+use key::DiceCache;
 use rand::{self, Rng};
 use serenity::Result;
 use serenity::model::channel::Message;
 use serenity::model::id::{ChannelId, MessageId, UserId};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::str::FromStr;
 use utils;
 
-pub fn roll_and_send(map: &mut HashMap<MessageId, DiceVec>,
+pub fn roll_and_send(map: &mut BTreeMap<MessageId, DiceVec>,
                      channel_id: ChannelId,
                      user_id: UserId,
                      set: DiceVec) -> Result<Message> {
+
+    let mut rng = rand::os::OsRng::new()?;
     let name = utils::cached_display_name(channel_id, user_id)?;
+
     let sent = channel_id.send_message(|m| {
-        m.content(format!(
-            "**{} rolled {}:**\n```\n{}\n```",
-            name,
-            set.to_string(),
-            set.roll(&mut rand::thread_rng()).join("\n")
+        m.content(format!("**{} rolled {}:**\n```\n{}\n```",
+            name, set.to_string(), set.roll(&mut rng).join("\n")
         )).reactions(vec!['🎲'])
     })?;
 
@@ -28,6 +28,8 @@ pub fn roll_and_send(map: &mut HashMap<MessageId, DiceVec>,
 }
 
 command!(roll(ctx, msg, args) {
+    let mut data = ctx.data.lock();
+    let mut map = data.get_mut::<DiceCache>().unwrap();
     let mut expr = args.full();
 
     let set = if let Ok(dice) = DiceVec::from_str(&expr) { dice } else {
@@ -36,15 +38,11 @@ command!(roll(ctx, msg, args) {
         DiceVec::from_str(&("3d6 ".to_string() + &expr)).unwrap()
     };
 
-    let mut data = ctx.data.lock();
-    let mut map = data.get_mut::<DiceMessages>()
-        .ok_or("ShareMap did not contain a value")?;
-
     roll_and_send(map, msg.channel_id, msg.author.id, set)?;
 });
 
 command!(flip(_ctx, msg) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::os::OsRng::new()?;
 
     msg.reply(if rng.gen_weighted_bool(1000) {
         "Edge!"
@@ -56,7 +54,9 @@ command!(flip(_ctx, msg) {
 });
 
 command!(choose(_ctx, msg, args) {
-    msg.reply(rand::thread_rng().choose(&args.multiple::<String>()?).unwrap())?;
+    let mut rng = rand::os::OsRng::new()?;
+    let from = args.multiple::<String>()?;
+    msg.reply(rng.choose(&from).unwrap())?;
 });
 
 command!(eight(_ctx, msg) {
@@ -75,5 +75,6 @@ command!(eight(_ctx, msg) {
         "Why do you want to know?", "Corner pocket.", "Scratch.", "Side pocket."
     ];
 
-    msg.reply(rand::thread_rng().choose(&ANSWERS).unwrap())?;
+    let mut rng = rand::os::OsRng::new()?;
+    msg.reply(rng.choose(&ANSWERS).unwrap())?;
 });

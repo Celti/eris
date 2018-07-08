@@ -1,21 +1,24 @@
 use serenity::{self, prelude::*, model::prelude::*};
+use std::env;
+use utils::cached_display_name;
 
 pub struct Handler;
 impl EventHandler for Handler {
     fn message(&self, _: Context, message: Message) {
         match message.channel_id.get() {
             Ok(Channel::Guild(channel)) => {
-                println!("{}--[{} #{}] {} <{}> {}",
-                    channel.read().id,
+                info!(target: "chat",
+                    "[{} #{}] {} <{}> {}",
                     channel.read().guild_id.get().unwrap().name,
                     channel.read().name(),
                     message.timestamp,
-                    message.author.name,
+                    cached_display_name(message.channel_id, message.author.id).unwrap(),
                     message.content
                 );
             }
             Ok(Channel::Group(channel)) => {
-                println!("[{}] {} <{}> {}",
+                info!(target: "chat",
+                    "[{}] {} <{}> {}",
                     channel.read().name(),
                     message.timestamp,
                     message.author.name,
@@ -23,7 +26,8 @@ impl EventHandler for Handler {
                 );
             }
             Ok(Channel::Private(channel)) => {
-                println!("[{}] {} <{}> {}",
+                info!(target: "chat",
+                    "[{}] {} <{}> {}",
                     channel.read().name(),
                     message.timestamp,
                     message.author.name,
@@ -31,7 +35,8 @@ impl EventHandler for Handler {
                 );
             }
             Ok(Channel::Category(channel)) => {
-                println!("[{}] {} <{}> {}",
+                info!(target: "chat",
+                    "[{}] {} <{}> {}",
                     channel.read().name(),
                     message.timestamp,
                     message.author.name,
@@ -39,7 +44,8 @@ impl EventHandler for Handler {
                 );
             }
             Err(_) => {
-                println!("[Unknown Channel] {} <{}> {}",
+                warn!(target: "chat",
+                    "[Unknown Channel] {} <{}> {}",
                     message.timestamp,
                     message.author.name,
                     message.content
@@ -61,7 +67,7 @@ impl EventHandler for Handler {
 
     fn reaction_add(&self, ctx: Context, re: Reaction) {
         use commands::random::roll_and_send;
-        use data::DiceMessages;
+        use key::DiceCache;
 
         // Don't respond to our own reactions.
         if serenity::utils::with_cache(|cache| cache.user.id == re.user_id) { return; }
@@ -72,17 +78,11 @@ impl EventHandler for Handler {
             ReactionType::Unicode(ref x) if x == "🎲" => {
                 let mut data = ctx.data.lock();
 
-                let mut map = if let Some(map) = data.get_mut::<DiceMessages>() {
-                    map
-                } else {
-                    warn!("DiceMessages map is not initialised.");
-                    return;
-                };
-
+                let mut map = data.get_mut::<DiceCache>().unwrap();
                 let dice = if let Some(dice) = map.get(&re.message_id) {
                     dice.clone()
                 } else {
-                    info!("Message is not in DiceMessages map.");
+                    info!("Die roll is not in message cache.");
                     return;
                 };
 
@@ -105,16 +105,16 @@ impl EventHandler for Handler {
     }
 }
 
-use failure::Error;
-pub fn run() -> Result<(), Error> {
+pub fn run() -> Result<(), SerenityError> {
     use serenity::framework::standard::{StandardFramework, help_commands};
-    use super::{data,commands};
+    use {key, commands};
 
-    let mut client = Client::new(&::std::env::var("DISCORD_TOKEN")?, Handler)?;
+    let token = env::var("DISCORD_TOKEN")
+        .expect("DISCORD_TOKEN not found in environment");
+
+    let mut client = Client::new(&token, Handler)?;
 
     let info = serenity::http::get_current_application_info()?;
-
-    data::init(&mut client);
 
     client.with_framework(StandardFramework::new()
         .configure(|c| { c
@@ -129,9 +129,7 @@ pub fn run() -> Result<(), Error> {
             .ignore_webhooks(true)
             .on_mention(true)
             .owners(hashset!{info.owner.id})
-            .prefix(".")
-            //.prefixes(hashset!{".", "!", "/"})
-            .delimiters(hashset!{", or ", ", ", ",", " or ", " "})
+            .delimiters(&[", or ", ", ", ",", " or ", " "])
             .case_insensitivity(true)
             })
 
@@ -188,10 +186,6 @@ pub fn run() -> Result<(), Error> {
                     .desc("Transmits a message from the conspiracy.")
                     .cmd(commands::toys::fnord)
                 })
-                .command("trade", |c| { c
-                    .desc("Sends out a kitten trading caravan.")
-                    .cmd(commands::toys::trade)
-                })
                 .command("ddate", |c| { c
                     .desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
                     .cmd(commands::toys::ddate)
@@ -200,14 +194,14 @@ pub fn run() -> Result<(), Error> {
 
             .group("Randomizers", |g| { g
                 .command("choose", |c| { c
-                    .batch_known_as(vec!["decide", "pick"])
+                    .batch_known_as(&["decide", "pick"])
                     .desc("Chooses between multiple options.")
                     .example("Option A, Option B, or Option C")
                     .cmd(commands::random::choose)
                     .min_args(2)
                 })
                 .command("ask", |c| { c
-                    .batch_known_as(vec!["eight", "8ball"])
+                    .batch_known_as(&["eight", "8ball"])
                     .desc("Ask the Magic 8 Ball a yes-or-no question.")
                     .cmd(commands::random::eight)
                 })
@@ -223,12 +217,9 @@ pub fn run() -> Result<(), Error> {
                             *`Y`* is the number of sides on each die.
                             *`N`* is the number of times to repeat the entire roll (optional).
                             *`±`* and *`Z`* are an optional mathematical modifier and its argument.
-                                This can be one of *`+`*, *`-`*, *`x`*, or *`/`*; or *`b`* or *`w`* to take the `b`est or `w`orst *`Z`* rolls.
-                        
-                        For game-specific skill checks, `roll <dice> vs T` compares the result to the target number *`T`*. This is currently implemented for GURPS, generic d20 (roll over), and generic d100 (roll under).
-                        
-                        For minimal usage, `roll` alone rolls 3d6.
-                        
+                                This can be one of *`+`*, *`-`*, *`x`*, or *`/`*; or *`b`* or *`w`* to take the `b`est or `w`orst *`Z`* rolls.\n
+                        For game-specific skill checks, `roll <dice> vs T` compares the result to the target number *`T`*. This is currently implemented for GURPS, generic d20 (roll over), and generic d100 (roll under).\n
+                        For minimal usage, `roll` alone rolls 3d6.\n
                         See also: https://en.wikipedia.org/wiki/Dice_notation `\u{200B}"
                     ))
                 })
@@ -236,7 +227,7 @@ pub fn run() -> Result<(), Error> {
 
             .group("GURPS", |g| { g
                 .command("st", |c| { c
-                    .desc("Calculate Basic Lift and Damage for a given ST.")
+                    .desc("Calculate Basic Lift and damage for a given ST.")
                     .cmd(commands::gurps::calc_st)
                     .num_args(1)
                 })
@@ -251,15 +242,14 @@ pub fn run() -> Result<(), Error> {
 
             .group("Tools", |g| { g
                 .command("calc", |c| { c
-                    .desc("A unit-aware precision calculator using Rink.")
+                    .desc("A unit-aware precision calculator based on GNU units.")
                     .cmd(commands::calc::calc)
                     .min_args(1)
-                    .usage("expr`\nFor details, see https://github.com/tiffany352/rink-rs/wiki/Rink-Manual `\u{200B}")
+                    .usage("expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}")
                 })
             }),
     );
 
-    client.start()?;
-
-    Ok(())
+    key::init(&mut client);
+    client.start()
 }

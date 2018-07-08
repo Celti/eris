@@ -1,23 +1,24 @@
 [package]
 name = "eris"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Celti Burroughs <celti@celti.name>"]
 
 [dependencies]
 chrono = "0.4"
 ddate = "0.4"
+diesel = { version = "1.0", features = ["postgres", "chrono"] }
+dotenv = "0.13"
 env_logger = "0.5"
-failure = "0.1"
 fnorder = "1.0"
 indoc = "0.2"
 lazy_static = "1.0"
 log = "0.4"
+log-panics = "2.0"
 maplit = "1.0"
 matches = "0.1"
-parking_lot = "0.5"
-rand = "0.4"
-regex = "0.2"
-rink = "0.4"
-serenity = { version = "0.5", path = "../serenity" }
+parking_lot = "0.6"
+radix_trie = "0.1"
+rand = "0.5"
+regex = "1.0"
+serenity = "0.5"
 typemap = "0.3"
-log-panics = "2.0"

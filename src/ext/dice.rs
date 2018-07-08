@@ -1,4 +1,6 @@
-use rand::{Rng, distributions::{IndependentSample, Range}};
+use rand::Rng;
+use rand::distributions::{IndependentSample, Range};
+use regex::Regex;
 use std::fmt::{self, Display};
 use std::str::FromStr;
 use std::string::ToString;
@@ -16,12 +18,15 @@ pub struct DiceExpr {
 }
 
 impl DiceExpr {
-    fn roll_once<R>(&self, mut rng: &mut R) -> String where R: Rng {
+    fn roll_once<R>(&self, mut rng: &mut R) -> String
+    where
+        R: Rng,
+    {
         let die = Range::new(1, self.sides + 1);
 
         let mut rolls: Vec<i64> = Vec::with_capacity(self.dice as usize);
 
-        for _ in 0 .. self.dice {
+        for _ in 0..self.dice {
             rolls.push(die.ind_sample(&mut rng));
         }
 
@@ -55,17 +60,13 @@ impl DiceExpr {
             if sum < 5 || (self.target > 14 && sum < 6) || (self.target > 15 && sum < 7) {
                 format!(
                     "{:>2} vs {}: Success by {} (CRITICAL SUCCESS)",
-                    sum,
-                    skill,
-                    margin
+                    sum, skill, margin
                 )
             } else if sum > 16 || margin <= -10 {
                 if self.target > 15 && sum == 17 {
                     format!(
                         "{:>2} vs {}: Margin of {} (Automatic Failure)",
-                        sum,
-                        skill,
-                        margin
+                        sum, skill, margin
                     )
                 } else {
                     format!(
@@ -80,11 +81,11 @@ impl DiceExpr {
             } else {
                 format!("{:>2} vs {}: Success by {}", sum, skill, margin)
             }
-        } else if self.versus && self.sides == 20 &&
-                   (self.dice == 1 ||
-                        (self.dice == 2 && self.value == 1 &&
-                             (matches!(self.modifier, Some(ref x) if x == "b") ||
-                                  matches!(self.modifier, Some(ref x) if x == "w"))))
+        } else if self.versus && self.sides == 20
+            && (self.dice == 1
+                || (self.dice == 2 && self.value == 1
+                    && (matches!(self.modifier, Some(ref x) if x == "b")
+                        || matches!(self.modifier, Some(ref x) if x == "w"))))
         {
             // Generic d20 system success roll.
             let margin = sum - self.target; // Roll over.
@@ -110,7 +111,10 @@ impl DiceExpr {
         }
     }
 
-    fn roll<R>(&self, mut rng: &mut R) -> Vec<String> where R: Rng {
+    fn roll<R>(&self, mut rng: &mut R) -> Vec<String>
+    where
+        R: Rng,
+    {
         let mut results = Vec::with_capacity(self.rolls as usize);
 
         for _ in 0..self.rolls {
@@ -142,28 +146,30 @@ impl Display for DiceExpr {
 }
 
 #[derive(Clone, Debug)]
-pub struct DiceVec{ inner: Vec<DiceExpr> }
+pub struct DiceVec {
+    inner: Vec<DiceExpr>,
+}
 
 impl DiceVec {
     pub fn new() -> Self {
         DiceVec { inner: Vec::new() }
     }
 
-    pub fn roll<R>(&self, mut rng: &mut R) -> Vec<String> where R: Rng {
+    pub fn roll<R>(&self, mut rng: &mut R) -> Vec<String>
+    where
+        R: Rng,
+    {
         self.inner.iter().flat_map(|e| e.roll(&mut rng)).collect()
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Fail, Hash, Ord, PartialOrd)]
-#[fail(display = "provided string did not contain a valid dice expression")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct ParseDiceError;
 
 impl FromStr for DiceVec {
     type Err = ParseDiceError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use regex::Regex;
-
         lazy_static! {
             static ref RE: Regex = Regex::new(r"(?x)
                 (?: (?P<rolls>\d+) [*x] )?                         # repeated rolls

@@ -1,12 +1,14 @@
-use rink::{load, one_line};
+use std::process::Command;
 
 command!(calc(_ctx, msg, args) {
-    let mut ctx = load()?;
-    ctx.short_output = true;
+    let expr = args.full().split(',');
 
-    let output = match one_line(&mut ctx, &args.full()) {
-        Ok(r) => r, Err(e) => e
-    };
+    let output = Command::new("/usr/bin/units")
+        .env("UNITS_ENGLISH", "US")
+        .arg("--terse")
+        .arg("--")
+        .args(expr)
+        .output()?;
 
-    msg.reply(&output)?;
+    msg.reply(&String::from_utf8_lossy(&output.stdout))?;
 });

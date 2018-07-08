@@ -4,8 +4,12 @@ command!(set_playing(ctx, msg, args) {
 });
 
 command!(quit(ctx, msg) {
+    let data = ctx.data.lock();
+    let shard_manager = data.get::<::key::ShardManager>()
+        .expect("ShardManager not present in Context::data");
+
     msg.channel_id.say("Goodnight, everybody!")?;
-    ctx.quit();
+    shard_manager.lock().shutdown_all();
 });
 
 command!(change_nick(_ctx, msg, args) {
@@ -19,22 +23,29 @@ command!(change_nick(_ctx, msg, args) {
 });
 
 command!(change_guild_prefix(ctx, msg, args) {
-    use data::GuildPrefixes;
-    use std::collections::HashMap;
+    use diesel::{self, prelude::*};
+    use diesel::pg::upsert::excluded;
+    use schema::guilds::dsl::*;
+    use key::{DatabaseConnection, PrefixCache};
+
+    let set_id = msg.guild_id().unwrap();
+    let set_prefix = args.full().to_string();
 
     let mut data = ctx.data.lock();
-    let mut map = data.entry::<GuildPrefixes>().or_insert(HashMap::default());
+    let cache = data.get_mut::<PrefixCache>().unwrap();
+    cache.insert(set_id, set_prefix.clone());
 
-    let guild = msg.guild_id().unwrap();
-    let prefix = args.full().to_string();
-
-    map.insert(guild, prefix);
+    let db = data.get::<DatabaseConnection>().unwrap();
+    diesel::insert_into(guilds)
+        .values((guild_id.eq(set_id.0 as i64), &prefix.eq(set_prefix)))
+        .on_conflict(guild_id).do_update()
+        .set(prefix.eq(excluded(prefix)))
+        .execute(&*db.lock())?;
 });
 
 command!(get_history(_ctx, msg, _args) {
     use std::fmt::Write;
     use serenity::http::AttachmentType;
-    use serenity::model::channel::Channel;
     use utils;
 
     let mut last = msg.id;
@@ -64,16 +75,9 @@ command!(get_history(_ctx, msg, _args) {
             message.content)?;
     }
 
-    let channel_name = match msg.channel_id.get()? {
-        Channel::Guild(c) => {
-            format!("{}-{}",
-                c.read().guild_id.get()?.name,
-                c.read().name.clone())
-        }
-        Channel::Group(c) => c.read().name.clone().unwrap_or(msg.channel_id.to_string()),
-        Channel::Private(c) => c.read().recipient.read().name.clone(),
-        Channel::Category(_) => unreachable!(),
-    };
+    let channel_name =
+        if let Some(name) = msg.channel_id.name() { name }
+        else { msg.channel_id.to_string() };
 
     let file_name = format!("{}-{}.txt", channel_name, msg.timestamp);
     let log_file = AttachmentType::Bytes((buf.as_bytes(), &file_name));

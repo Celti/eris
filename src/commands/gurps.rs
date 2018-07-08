@@ -161,7 +161,7 @@ command!(reaction(_ctx, msg, arg) {
 
     use rand::{self, distributions::{IndependentSample, Range}};
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::os::OsRng::new()?;
     let roll: i64 = (0..3).map(|_| Range::new(1,7).ind_sample(&mut rng)).sum();
 
     let modifier = arg.single::<i64>()?;

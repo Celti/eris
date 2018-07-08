@@ -1,9 +1,9 @@
 use serenity::client::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::{ChannelId, UserId};
-use serenity::{CACHE, Result};
+use serenity::{CACHE, Error as SerenityError};
 
-pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<String> {
+pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<String, SerenityError> {
     let cache = CACHE.read();
 
     // If this is a guild channel and the user is a member...
@@ -19,11 +19,8 @@ pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<Str
 }
 
 pub fn select_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
-    use data::GuildPrefixes;
-    use std::collections::HashMap;
+    let data = ctx.data.lock();
+    let map = data.get::<::key::PrefixCache>()?;
 
-    let mut data = ctx.data.lock();
-    let map = data.entry::<GuildPrefixes>().or_insert(HashMap::default());
-
-    map.get(&msg.guild_id()?).cloned()
+    map.get(&msg.guild_id()?).filter(|s| !s.is_empty()).cloned()
 }
