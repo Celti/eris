@@ -119,9 +119,68 @@ fn main() -> Result<(), Box<Error>> {
 
         .help(help_commands::with_embeds)
 
-        .command("roll", |c| { c
-            .desc("Roll and calculate dice expressions.")
-            .cmd(crate::cmd::roll::roll)
+        .group("Admin", |g| { g
+            .command("playing", |c| { c
+                .desc("Set the currently displayed game tag.")
+                .cmd(cmd::admin::set_playing)
+                .known_as("play")
+                .min_args(1)
+                .owners_only(true)
+            })
+            .command("nick", |c| { c
+                .desc("Change Eris's nickname on the current guild.")
+                .cmd(cmd::admin::change_nick)
+                .guild_only(true)
+                .required_permissions(Permissions::ADMINISTRATOR)
+            })
+        })
+
+        .group("Toys", |g| { g
+            .command("fnord", |c| { c
+                .desc("Receive a message from the conspiracy.")
+                .cmd(cmd::misc::fnord)
+            })
+            .command("ddate", |c| { c
+                .desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
+                .cmd(cmd::misc::ddate)
+            })
+        })
+
+        .group("Randomizers", |g| { g
+            .command("choose", |c| { c
+                .batch_known_as(&["decide", "pick"])
+                .desc("Choose between multiple comma-delimited options.")
+                .example("Option A, Option B, or Option C")
+                .cmd(cmd::random::choose)
+                .min_args(2)
+            })
+            .command("ask", |c| { c
+                .batch_known_as(&["eight", "8ball"])
+                .desc("Ask the Magic 8 Ball a yes-or-no question.")
+                .cmd(cmd::random::eight)
+            })
+            .command("flip", |c| { c
+                .desc("Flip a coin.")
+                .cmd(cmd::random::flip)
+            })
+            .command("roll", |c| { c
+                .desc("Calculate an expression in algebraic dice notation.")
+                .cmd(cmd::roll::roll)
+            })
+        })
+
+        .group("Tools", |g| { g
+            .command("calc", |c| { c
+                .desc("A unit-aware precision calculator based on GNU units.")
+                .cmd(cmd::util::calc)
+                .min_args(1)
+                .usage("expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}")
+            })
+            .command("logs", |c| { c
+                .desc("Generate a log file for this channel to the current timestamp.")
+                .cmd(cmd::util::get_history)
+                .known_as("log")
+            })
         })
     );
 
