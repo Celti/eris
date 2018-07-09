@@ -14,17 +14,14 @@ command!(flip(_ctx, msg) {
 });
 
 command!(choose(_ctx, msg, args) {
-    let delimiters = &[
-        ", or ".to_string(),
-        ", ".to_string(),
-        ",".to_string(),
-        " or ".to_string()
-    ];
+    let choices = args.full().split(", or ")
+        .flat_map(|s| s.split(", "))
+        .flat_map(|s| s.split(","))
+        .flat_map(|s| s.split(" or "))
+        .collect::<Vec<_>>();
 
-    let choices = Args::new(args.full(), delimiters).multiple::<String>()?;
-
-    if choices.is_empty() {
-        msg.reply("Figure it out yourself!")?;
+    if choices.len() < 2 {
+        msg.reply("No.")?;
     } else {
         msg.reply(rand::thread_rng().choose(&choices).unwrap())?;
     }

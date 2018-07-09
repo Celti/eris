@@ -152,7 +152,6 @@ fn main() -> Result<(), Box<Error>> {
                 .desc("Choose between multiple comma-delimited options.")
                 .example("Option A, Option B, or Option C")
                 .cmd(cmd::random::choose)
-                .min_args(2)
             })
             .command("ask", |c| { c
                 .batch_known_as(&["eight", "8ball"])
