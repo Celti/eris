@@ -14,45 +14,50 @@ impl EventHandler for Eris {
         match message.channel_id.get() {
             Ok(Channel::Guild(channel)) => {
                 info!(target: "chat",
-                    "[{} #{}] {} <{}> {}",
+                    "[{} #{}] {} <{}:{}> {}",
                     channel.read().guild_id.get().unwrap().name,
                     channel.read().name(),
                     message.timestamp,
+                    message.author.id,
                     cached_display_name(message.channel_id, message.author.id).unwrap(),
                     message.content
                 );
             }
             Ok(Channel::Group(channel)) => {
                 info!(target: "chat",
-                    "[{}] {} <{}> {}",
+                    "[{}] {} <{}:{}> {}",
                     channel.read().name(),
                     message.timestamp,
+                    message.author.id,
                     message.author.name,
                     message.content
                 );
             }
             Ok(Channel::Private(channel)) => {
                 info!(target: "chat",
-                    "[{}] {} <{}> {}",
+                    "[{}] {} <{}:{}> {}",
                     channel.read().name(),
                     message.timestamp,
+                    message.author.id,
                     message.author.name,
                     message.content
                 );
             }
             Ok(Channel::Category(channel)) => {
                 info!(target: "chat",
-                    "[{}] {} <{}> {}",
+                    "[{}] {} <{}:{}> {}",
                     channel.read().name(),
                     message.timestamp,
+                    message.author.id,
                     message.author.name,
                     message.content
                 );
             }
             Err(_) => {
                 warn!(target: "chat",
-                    "[Unknown Channel] {} <{}> {}",
+                    "[Unknown Channel] {} <{}:{}> {}",
                     message.timestamp,
+                    message.author.id,
                     message.author.name,
                     message.content
                 );
