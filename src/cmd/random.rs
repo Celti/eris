@@ -1,4 +1,4 @@
-use serenity::{command, framework::standard::Args};
+use serenity::command;
 use rand::Rng;
 
 command!(flip(_ctx, msg) {
