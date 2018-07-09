@@ -4,7 +4,7 @@ use rand::Rng;
 command!(flip(_ctx, msg) {
     let mut rng = rand::thread_rng();
 
-    msg.reply(if rng.gen_bool(0.001) {
+    msg.reply(if rng.gen_bool(0.01) {
         "Edge!"
     } else if rng.gen() {
         "Heads!"
