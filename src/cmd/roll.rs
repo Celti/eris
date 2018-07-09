@@ -1,7 +1,9 @@
 use serenity::command;
 use self::parse::Roll;
 use regex::Regex;
-use lazy_static::{lazy_static, __lazy_static_create, __lazy_static_internal}; // FIXME: use_extern_macros
+use lazy_static::{lazy_static, __lazy_static_create, __lazy_static_internal}; // FIXME use_extern_macros
+
+// TODO versus modes for games besides GURPS
 
 command!(roll(_ctx, msg, args) {
     let res = if let Ok(r) = args.single::<Roll>() { r }
@@ -78,7 +80,7 @@ command!(roll(_ctx, msg, args) {
 });
 
 mod parse {
-    use lazy_static::{lazy_static, __lazy_static_create, __lazy_static_internal}; // FIXME: use_extern_macros
+    use lazy_static::{lazy_static, __lazy_static_create, __lazy_static_internal}; // FIXME use_extern_macros
     use rand::distributions::{Distribution, Uniform};
     use regex::Regex;
     use std::{fmt::{Display, Formatter, Result as FmtResult}, str::FromStr};
@@ -261,7 +263,6 @@ mod parse {
         Div,
         Rem,
         Pow,
-        // FIXME: Best(), Worst()
     }
 
     impl Term {
