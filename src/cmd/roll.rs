@@ -104,10 +104,26 @@ mod parse {
             let mut total = 0;
             let mut op: Term = Term::Add;
 
-            for (term, values) in terms.clone().into_iter() {
+            for (term, values) in terms.clone().iter_mut() {
                 match term {
                     Term::Dice{..} | Term::Num(_) => {
-                        let i = values.iter().fold(0, |a,v| a + v);
+                        let i = if let Term::Dice{t, ..} = term {
+                            if let Some(t) = t {
+                                values.sort_unstable();
+
+                                if t.is_positive() {
+                                    values.iter().rev().take(t.abs() as usize).fold(0, |a,v| a + v)
+                                } else if t.is_negative() {
+                                    values.iter().take(t.abs() as usize).fold(0, |a,v| a + v)
+                                } else {
+                                    0
+                                }
+                            } else {
+                                values.iter().fold(0, |a,v| a + v)
+                            }
+                        } else {
+                            values[0]
+                        };
 
                         match op {
                             Term::Add => total = total + i,
@@ -121,7 +137,7 @@ mod parse {
                     }
 
                     Term::Add | Term::Sub | Term::Mul |
-                    Term::Div | Term::Rem | Term::Pow => op = term,
+                    Term::Div | Term::Rem | Term::Pow => op = *term,
                 }
             }
 
@@ -153,9 +169,9 @@ mod parse {
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             lazy_static! {
                 static ref RE: Regex = Regex::new(r"(?x)
-                    \d+ d \d+      | # Term::Dice
-                    [-+×x*/\\÷%^]  | # Term::<Op>
-                    -? \d+           # Term::Num
+                    \d+ d \d+ (?: [bw] \d+ ) | # Term::Dice
+                    [-+×x*/\\÷%^]            | # Term::<Op>
+                    -? \d+                     # Term::Num
                 ").unwrap();
             }
 
@@ -237,7 +253,7 @@ mod parse {
 
     #[derive(Clone, Copy, Debug)]
     crate enum Term {
-        Dice { n: usize, s: usize },
+        Dice { n: usize, s: usize, t: Option<isize> },
         Num(isize),
         Add,
         Sub,
@@ -251,12 +267,10 @@ mod parse {
     impl Term {
         fn with_value(self) -> (Term, Vec<isize>) {
             match self {
-                Term::Dice{n, s} => {
+                Term::Dice{n, s, ..} => {
                     let die = Uniform::new_inclusive(1, s as isize);
                     let mut rng = rand::thread_rng();
-                    let out = die.sample_iter(&mut rng).take(n).collect();
-
-                    (self, out)
+                    (self, die.sample_iter(&mut rng).take(n).collect())
                 }
                 Term::Num(i) => (self, vec![i]),
                 _            => (self, Vec::new()),
@@ -267,7 +281,19 @@ mod parse {
     impl Display for Term {
         fn fmt(&self, f: &mut Formatter) -> FmtResult {
             match self {
-                Term::Dice{n,s} => write!(f, "{}d{}", n, s),
+                Term::Dice{n,s,t} => {
+                    if let Some(t) = t {
+                        if t.is_positive() {
+                            write!(f, "{}d{}b{}", n, s, t.abs())
+                        } else if t.is_negative() {
+                            write!(f, "{}d{}w{}", n, s, t.abs())
+                        } else {
+                            write!(f, "{}d{}x0", n, s)
+                        }
+                    } else {
+                        write!(f, "{}d{}", n, s)
+                    }
+                }
                 Term::Num(i)    => write!(f, "{}", i),
                 Term::Add       => write!(f, "+"),
                 Term::Sub       => write!(f, "-"),
@@ -286,11 +312,26 @@ mod parse {
             let s = normalize_str(s);
 
             if s.contains('d') {
-                let d: Vec<&str> = s.split(|c| c == 'd' || c == 'x').collect();
-                Ok(Term::Dice {
-                    n: d[0].parse()?,
-                    s: d[1].parse()?,
-                })
+                let d: Vec<&str> = s.split(|c| c == 'd' || c == 'b' || c == 'w').collect();
+                if s.contains('b') && d.len() == 3 {
+                    Ok(Term::Dice {
+                        n: d[0].parse()?,
+                        s: d[1].parse()?,
+                        t: Some(d[2].parse()?),
+                    })
+                } else if s.contains('w') && d.len() == 3 {
+                    Ok(Term::Dice {
+                        n: d[0].parse()?,
+                        s: d[1].parse()?,
+                        t: Some(-d[2].parse()?),
+                    })
+                } else {
+                    Ok(Term::Dice {
+                        n: d[0].parse()?,
+                        s: d[1].parse()?,
+                        t: None,
+                    })
+                }
             } else {
                 let mut c = s.chars();
                 match c.next() {
