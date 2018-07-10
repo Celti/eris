@@ -1,21 +1,30 @@
+use crate::key::DiceCache;
 use self::parse::Roll;
 use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static};
 use regex::Regex;
-use serenity::command; // FIXME use_extern_macros
+use serenity::{command, framework::standard::{Args, CommandError}, prelude::Mentionable};
 
 // TODO versus modes for games besides GURPS
 
-command!(roll(_ctx, msg, args) {
-    let res = if let Ok(r) = args.single::<Roll>() { r }
-        else { "3d6".parse().unwrap() };
+command!(dice(ctx, msg, args) {
+    let name = msg.author.id.mention();
+    let roll = process_args(args)?;
+    let sent = msg.channel_id.send_message(|m| { m
+        .content(format!("**{} rolled:**{}", name, roll))
+        .reactions(vec!['🎲'])
+    })?;
 
-    let rem = if let Ok(s) = args.multiple::<String>() { s.join(" ") }
-        else { String::new() };
+    let mut map = ctx.data.lock();
+    let mut cache = map.get_mut::<DiceCache>().unwrap();
+    cache.insert(sent.id, msg.content_safe());
+});
 
-    let name = crate::util::cached_display_name(msg.channel_id, msg.author.id)?;
+crate fn process_args(mut args: Args) -> Result<String, CommandError> {
+    let res = if let Ok(r) = args.single::<Roll>() { r } else { "3d6".parse().unwrap() };
+    let rem = if let Ok(s) = args.multiple::<String>() { s.join(" ") } else { String::new() };
 
-    let mut out = Vec::new();
     let mut comment = String::new();
+    let mut out = Vec::new();
 
     lazy_static! { static ref RE: Regex = Regex::new(r"(?x) (?:
         \s* v(?:s|ersus)? \s* (?P<t1>\S+?.*?)?? [\s-] (?P<v1>-?\d+) (?: \s* r(?:e|epeat)? \s* (?P<r2>\d+) \s* )? |
@@ -70,14 +79,8 @@ command!(roll(_ctx, msg, args) {
         out.push(res.to_string());
     }
 
-
-    let _sent = msg.channel_id.send_message(|m| {
-        m.content(
-            format!("**{} rolled:**{}\n```\n{}\n```", name, comment, out.join("\n"))
-        ).reactions(vec!['🎲'])
-    })?;
-
-});
+    Ok(format!("{}\n```\n{}\n```", comment, out.join("\n")))
+}
 
 mod parse {
     use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static}; // FIXME use_extern_macros

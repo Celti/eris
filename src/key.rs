@@ -36,13 +36,13 @@ impl Key for ShardManager {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Store {
     pub prefix: <PrefixCache as Key>::Value,
-    pub dice: <DiceCache as Key>::Value,
     pub memory: <MemoryCache as Key>::Value,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MemoryEntry {
     pub content: String,
+    pub submitter: String,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -58,8 +58,9 @@ pub fn init(client: &mut Client) -> Result<(), failure::Error> {
 
     db.read(|db| {
         map.insert::<ShardManager>(Arc::clone(&client.shard_manager));
+        map.insert::<DiceCache>(<DiceCache as Key>::Value::default());
         map.insert::<PrefixCache>(db.prefix.clone());
-        map.insert::<DiceCache>(db.dice.clone());
+        map.insert::<MemoryCache>(db.memory.clone());
     })?;
 
     map.insert::<Persistent>(db);
@@ -73,7 +74,7 @@ pub fn sync(ctx: &mut Context, _msg: &Message, _res: &Result<(), CommandError>) 
 
     db.write(|db| {
         db.prefix = map.get::<PrefixCache>().unwrap().clone();
-        db.dice = map.get::<DiceCache>().unwrap().clone();
+        db.memory = map.get::<MemoryCache>().unwrap().clone();
     }).unwrap();
 
     db.save().unwrap();

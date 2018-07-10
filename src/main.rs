@@ -7,7 +7,7 @@ mod util;
 use crate::util::cached_display_name;
 use exitfailure::ExitFailure;
 use failure::SyncFailure;
-use log::{error, info, log, warn}; // debug, trace
+use log::{error, info, log, warn, debug}; // trace
 use serenity::{model::prelude::*, prelude::*};
 
 struct Eris;
@@ -76,6 +76,47 @@ impl EventHandler for Eris {
 
         // TODO get name from persistent store
         ctx.set_game_name("with fire.");
+    }
+
+    fn reaction_add(&self, ctx: Context, re: Reaction) {
+        use crate::key::DiceCache;
+        use serenity::framework::standard::{Args, CommandError};
+
+        // Don't respond to our own reactions.
+        if serenity::utils::with_cache(|cache| cache.user.id == re.user_id) { return; }
+
+        // Reaction matcher.
+        match re.emoji {
+            // Reroll dice.
+            ReactionType::Unicode(ref x) if x == "🎲" => {
+                let mut map = ctx.data.lock();
+                let cache = map.get_mut::<DiceCache>().unwrap();
+                let dice = if let Some(dice) = cache.get(&re.message_id) {
+                    dice.clone()
+                } else {
+                    info!("Die roll is not in message cache.");
+                    return;
+                };
+
+                let result: Result<(), CommandError> = do catch {
+                    let name = re.user_id.mention();
+                    let roll = cmd::roll::process_args(Args::new(&dice, &[' '.to_string()]))?;
+                    let sent = re.channel_id.send_message(|m| { m
+                        .content(format!("**{} rolled:**{}", name, roll))
+                        .reactions(vec!['🎲'])
+                    })?;
+
+                    re.channel_id.message(re.message_id).and_then(|m| m.delete_reactions())?;
+                    cache.insert(sent.id, dice);
+                };
+
+                if let Err(err) = result {
+                    error!("error repeating dice roll: {:?}", err);
+                }
+            }
+            // An unconfigured reaction type.
+            r => debug!("Unknown ReactionType: {:?}", r),
+        }
     }
 }
 
@@ -168,7 +209,7 @@ fn main() -> Result<(), ExitFailure> {
                     .command("flip", |c| c.desc("Flip a coin.").cmd(cmd::random::flip))
                     .command("roll", |c| {
                         c.desc("Calculate an expression in algebraic dice notation.")
-                            .cmd(cmd::roll::roll)
+                            .cmd(cmd::roll::dice)
                     })
             })
             .group("Tools", |g| {
