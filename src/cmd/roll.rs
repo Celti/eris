@@ -1,8 +1,12 @@
-use crate::key::DiceCache;
 use self::parse::Roll;
+use crate::key::DiceCache;
 use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static};
 use regex::Regex;
-use serenity::{command, framework::standard::{Args, CommandError}, prelude::Mentionable};
+use serenity::{
+    command,
+    framework::standard::{Args, CommandError},
+    prelude::Mentionable,
+};
 
 // TODO versus modes for games besides GURPS
 
@@ -20,8 +24,16 @@ command!(dice(ctx, msg, args) {
 });
 
 crate fn process_args(mut args: Args) -> Result<String, CommandError> {
-    let res = if let Ok(r) = args.single::<Roll>() { r } else { "3d6".parse().unwrap() };
-    let rem = if let Ok(s) = args.multiple::<String>() { s.join(" ") } else { String::new() };
+    let res = if let Ok(r) = args.single::<Roll>() {
+        r
+    } else {
+        "3d6".parse().unwrap()
+    };
+    let rem = if let Ok(s) = args.multiple::<String>() {
+        s.join(" ")
+    } else {
+        String::new()
+    };
 
     let mut comment = String::new();
     let mut out = Vec::new();
@@ -56,18 +68,38 @@ crate fn process_args(mut args: Args) -> Result<String, CommandError> {
                 // GURPS 4th Edition success roll.
                 let margin = target - res.total; // Roll under.
 
-                if res.total < 5 || (target > 14 && res.total < 6) || (target > 15 && res.total < 7) {
-                    out.push(format!("{:>2} vs {}: Success by {} (CRITICAL SUCCESS)", res.total, skill, margin));
+                if res.total < 5 || (target > 14 && res.total < 6) || (target > 15 && res.total < 7)
+                {
+                    out.push(format!(
+                        "{:>2} vs {}: Success by {} (CRITICAL SUCCESS)",
+                        res.total, skill, margin
+                    ));
                 } else if res.total > 16 || margin <= -10 {
                     if target > 15 && res.total == 17 {
-                        out.push(format!("{:>2} vs {}: Margin of {} (Automatic Failure)", res.total, skill, margin));
+                        out.push(format!(
+                            "{:>2} vs {}: Margin of {} (Automatic Failure)",
+                            res.total, skill, margin
+                        ));
                     } else {
-                        out.push(format!("{:>2} vs {}: Failure by {} (CRITICAL FAILURE)", res.total, skill, margin.abs()));
+                        out.push(format!(
+                            "{:>2} vs {}: Failure by {} (CRITICAL FAILURE)",
+                            res.total,
+                            skill,
+                            margin.abs()
+                        ));
                     }
                 } else if margin < 0 {
-                    out.push(format!("{:>2} vs {}: Failure by {}", res.total, skill, margin.abs()));
+                    out.push(format!(
+                        "{:>2} vs {}: Failure by {}",
+                        res.total,
+                        skill,
+                        margin.abs()
+                    ));
                 } else {
-                    out.push(format!("{:>2} vs {}: Success by {}", res.total, skill, margin));
+                    out.push(format!(
+                        "{:>2} vs {}: Success by {}",
+                        res.total, skill, margin
+                    ));
                 }
             }
         } else {
@@ -184,11 +216,13 @@ mod parse {
 
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             lazy_static! {
-                static ref RE: Regex = Regex::new(r"(?x)
+                static ref RE: Regex = Regex::new(
+                    r"(?x)
                     \d+ d \d+ (?: [bw] \d+ )? | # Term::Dice
                     [-+×x*/\\÷%^]             | # Term::<Op>
                     -? \d+                      # Term::Num
-                ").unwrap();
+                "
+                ).unwrap();
             }
 
             let s = normalize_str(s);

@@ -7,7 +7,7 @@ mod util;
 use crate::util::cached_display_name;
 use exitfailure::ExitFailure;
 use failure::SyncFailure;
-use log::{error, info, log, warn, debug}; // trace
+use log::{debug, error, info, log, warn}; // trace
 use serenity::{model::prelude::*, prelude::*};
 
 struct Eris;
@@ -83,7 +83,9 @@ impl EventHandler for Eris {
         use serenity::framework::standard::{Args, CommandError};
 
         // Don't respond to our own reactions.
-        if serenity::utils::with_cache(|cache| cache.user.id == re.user_id) { return; }
+        if serenity::utils::with_cache(|cache| cache.user.id == re.user_id) {
+            return;
+        }
 
         // Reaction matcher.
         match re.emoji {
@@ -101,12 +103,14 @@ impl EventHandler for Eris {
                 let result: Result<(), CommandError> = do catch {
                     let name = re.user_id.mention();
                     let roll = cmd::roll::process_args(Args::new(&dice, &[' '.to_string()]))?;
-                    let sent = re.channel_id.send_message(|m| { m
-                        .content(format!("**{} rolled:**{}", name, roll))
-                        .reactions(vec!['🎲'])
+                    let sent = re.channel_id.send_message(|m| {
+                        m.content(format!("**{} rolled:**{}", name, roll))
+                            .reactions(vec!['🎲'])
                     })?;
 
-                    re.channel_id.message(re.message_id).and_then(|m| m.delete_reactions())?;
+                    re.channel_id
+                        .message(re.message_id)
+                        .and_then(|m| m.delete_reactions())?;
                     cache.insert(sent.id, dice);
                 };
 
@@ -185,6 +189,13 @@ fn main() -> Result<(), ExitFailure> {
                             .cmd(cmd::admin::quit)
                             .owners_only(true)
                     })
+            })
+            .group("GURPS", |g| {
+                g.command("st", |c| {
+                    c.desc("Calculate Basic Lift and damage for a given ST.")
+                        .cmd(cmd::gurps::calc_st)
+                        .num_args(1)
+                })
             })
             .group("Toys", |g| {
                 g.command("fnord", |c| {
