@@ -1,7 +1,7 @@
 #![feature(rust_2018_preview, use_extern_macros, nll)]
 
-mod util;
 mod cmd;
+mod util;
 
 use crate::util::cached_display_name;
 use log::{log, error, warn, info}; // debug, trace
@@ -77,7 +77,7 @@ impl EventHandler for Eris {
     }
 }
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv().ok();
     log_panics::init();
     env_logger::init();
@@ -103,7 +103,7 @@ fn main() -> Result<(), Box<Error>> {
             // .owners(hashset!{info.owner.id})
             // .delimiters(&[", or ", ", ", ",", " or ", " "])
             .case_insensitivity(true)
-            })
+        })
 
         .after(|_ctx, _msg, cmd, res| {
             match res {
@@ -183,5 +183,7 @@ fn main() -> Result<(), Box<Error>> {
         })
     );
 
-    Ok(client.start()?)
+    client.start()?;
+
+    Ok(())
 }

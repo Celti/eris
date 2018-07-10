@@ -16,7 +16,7 @@ command!(flip(_ctx, msg) {
 command!(choose(_ctx, msg, args) {
     let choices = args.full().split(", or ")
         .flat_map(|s| s.split(", "))
-        .flat_map(|s| s.split(","))
+        .flat_map(|s| s.split(','))
         .flat_map(|s| s.split(" or "))
         .collect::<Vec<_>>();
 

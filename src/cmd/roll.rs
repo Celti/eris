@@ -106,7 +106,7 @@ mod parse {
             let mut total = 0;
             let mut op: Term = Term::Add;
 
-            for (term, values) in terms.clone().iter_mut() {
+            for (term, values) in &mut terms.clone() {
                 match term {
                     Term::Dice{..} | Term::Num(_) => {
                         let i = if let Term::Dice{t, ..} = term {
@@ -114,25 +114,25 @@ mod parse {
                                 values.sort_unstable();
 
                                 if t.is_positive() {
-                                    values.iter().rev().take(t.abs() as usize).fold(0, |a,v| a + v)
+                                    values.iter().rev().take(t.abs() as usize).sum()
                                 } else if t.is_negative() {
-                                    values.iter().take(t.abs() as usize).fold(0, |a,v| a + v)
+                                    values.iter().take(t.abs() as usize).sum()
                                 } else {
                                     0
                                 }
                             } else {
-                                values.iter().fold(0, |a,v| a + v)
+                                values.iter().sum()
                             }
                         } else {
                             values[0]
                         };
 
                         match op {
-                            Term::Add => total = total + i,
-                            Term::Sub => total = total - i,
-                            Term::Mul => total = total * i,
-                            Term::Div => total = total / i,
-                            Term::Rem => total = total % i,
+                            Term::Add => total += i,
+                            Term::Sub => total -= i,
+                            Term::Mul => total *= i,
+                            Term::Div => total /= i,
+                            Term::Rem => total %= i,
                             Term::Pow => total = total.pow(i as u32),
                             _         => unreachable!(),
                         }
@@ -151,7 +151,7 @@ mod parse {
         fn fmt(&self, f: &mut Formatter) -> FmtResult {
             let mut out = String::new();
 
-            for (term, values) in self.terms.iter() {
+            for (term, values) in &self.terms {
                 out.push_str(" ");
                 match term {
                     Term::Add | Term::Sub | Term::Mul |
