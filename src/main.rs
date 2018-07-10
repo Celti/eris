@@ -1,12 +1,14 @@
 #![feature(rust_2018_preview, use_extern_macros, nll)]
 
 mod cmd;
+mod key;
 mod util;
 
 use crate::util::cached_display_name;
-use log::{log, error, warn, info}; // debug, trace
-use serenity::{prelude::*, model::prelude::*};
-use std::error::Error;
+use exitfailure::ExitFailure;
+use failure::SyncFailure;
+use log::{error, info, log, warn}; // debug, trace
+use serenity::{model::prelude::*, prelude::*};
 
 struct Eris;
 impl EventHandler for Eris {
@@ -77,25 +79,27 @@ impl EventHandler for Eris {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), ExitFailure> {
     dotenv::dotenv().ok();
     log_panics::init();
     env_logger::init();
 
-    use serenity::framework::standard::{StandardFramework, help_commands};
+    use serenity::framework::standard::{help_commands, StandardFramework};
 
     let token = std::env::var("DISCORD_TOKEN")?;
-    let mut client = Client::new(&token, Eris)?;
+    let mut client = Client::new(&token, Eris).map_err(SyncFailure::new)?;
 
-    client.with_framework(StandardFramework::new()
-        .configure(|c| { c
+    client.with_framework(
+        StandardFramework::new()
+            .configure(|c| {
+                c
             .allow_dm(true)
             .allow_whitespace(false)
             // .blocked_guilds(hashset!{GuildId(1), GuildId(2)})
             // .blocked_users(hashset!{UserId(1), UserId(2)})
             // .depth(5)
             // .disabled_commands(hashset!{"foo", "fnord"})
-            // .dynamic_prefix(crate::utils::select_prefix)
+            .dynamic_prefix(util::cached_prefix)
             .ignore_bots(true)
             .ignore_webhooks(true)
             .on_mention(true)
@@ -103,87 +107,87 @@ fn main() -> Result<(), Box<dyn Error>> {
             // .owners(hashset!{info.owner.id})
             // .delimiters(&[", or ", ", ", ",", " or ", " "])
             .case_insensitivity(true)
-        })
-
-        .after(|_ctx, _msg, cmd, res| {
-            match res {
+            })
+            .after(|_ctx, _msg, cmd, res| match res {
                 Ok(()) => info!("Successfully processed command '{}'", cmd),
                 Err(e) => error!("Error processing command '{}': {:?}", cmd, e),
-            }
-        })
-
-        .on_dispatch_error(|_ctx, msg, err| {
-            // TODO match on DispatchError enum and customise responses.
-            let _ = msg.channel_id.say(&format!("Could not execute command: {:?}", err));
-        })
-
-        .help(help_commands::with_embeds)
-
-        .group("Admin", |g| { g
-            .command("playing", |c| { c
-                .desc("Set the currently displayed game tag.")
-                .cmd(cmd::admin::set_playing)
-                .known_as("play")
-                .min_args(1)
-                .owners_only(true)
             })
-            .command("nick", |c| { c
-                .desc("Change Eris's nickname on the current guild.")
-                .cmd(cmd::admin::change_nick)
-                .guild_only(true)
-                .required_permissions(Permissions::ADMINISTRATOR)
+            .on_dispatch_error(|_ctx, msg, err| {
+                // TODO match on DispatchError enum and customise responses.
+                let _ = msg
+                    .channel_id
+                    .say(&format!("Could not execute command: {:?}", err));
             })
-        })
-
-        .group("Toys", |g| { g
-            .command("fnord", |c| { c
-                .desc("Receive a message from the conspiracy.")
-                .cmd(cmd::misc::fnord)
+            .help(help_commands::with_embeds)
+            .group("Admin", |g| {
+                g.command("nick", |c| {
+                    c.desc("Change Eris's nickname on the current guild.")
+                        .cmd(cmd::admin::change_nick)
+                        .guild_only(true)
+                        .required_permissions(Permissions::ADMINISTRATOR)
+                }).command("playing", |c| {
+                        c.desc("Set the currently displayed game tag.")
+                            .cmd(cmd::admin::set_playing)
+                            .known_as("play")
+                            .min_args(1)
+                            .owners_only(true)
+                    })
+                    .command("prefix", |c| {
+                        c.desc("Change Eris's command prefix on the current guild.")
+                            .cmd(cmd::admin::change_guild_prefix)
+                            .guild_only(true)
+                            .required_permissions(Permissions::ADMINISTRATOR)
+                            .after(key::sync)
+                    })
+                    .command("quit", |c| {
+                        c.desc("Disconnect Eris from Discord.")
+                            .cmd(cmd::admin::quit)
+                            .owners_only(true)
+                    })
             })
-            .command("ddate", |c| { c
-                .desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
-                .cmd(cmd::misc::ddate)
+            .group("Toys", |g| {
+                g.command("fnord", |c| {
+                    c.desc("Receive a message from the conspiracy.")
+                        .cmd(cmd::misc::fnord)
+                }).command("ddate", |c| {
+                    c.desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
+                        .cmd(cmd::misc::ddate)
+                })
             })
-        })
-
-        .group("Randomizers", |g| { g
-            .command("choose", |c| { c
-                .batch_known_as(&["decide", "pick"])
-                .desc("Choose between multiple comma-delimited options.")
-                .example("Option A, Option B, or Option C")
-                .cmd(cmd::random::choose)
+            .group("Randomizers", |g| {
+                g.command("choose", |c| {
+                    c.batch_known_as(&["decide", "pick"])
+                        .desc("Choose between multiple comma-delimited options.")
+                        .example("Option A, Option B, or Option C")
+                        .cmd(cmd::random::choose)
+                }).command("ask", |c| {
+                        c.batch_known_as(&["eight", "8ball"])
+                            .desc("Ask the Magic 8 Ball a yes-or-no question.")
+                            .cmd(cmd::random::eight)
+                    })
+                    .command("flip", |c| c.desc("Flip a coin.").cmd(cmd::random::flip))
+                    .command("roll", |c| {
+                        c.desc("Calculate an expression in algebraic dice notation.")
+                            .cmd(cmd::roll::roll)
+                    })
             })
-            .command("ask", |c| { c
-                .batch_known_as(&["eight", "8ball"])
-                .desc("Ask the Magic 8 Ball a yes-or-no question.")
-                .cmd(cmd::random::eight)
-            })
-            .command("flip", |c| { c
-                .desc("Flip a coin.")
-                .cmd(cmd::random::flip)
-            })
-            .command("roll", |c| { c
-                .desc("Calculate an expression in algebraic dice notation.")
-                .cmd(cmd::roll::roll)
-            })
-        })
-
-        .group("Tools", |g| { g
-            .command("calc", |c| { c
+            .group("Tools", |g| {
+                g.command("calc", |c| {
+                    c
                 .desc("A unit-aware precision calculator based on GNU units.")
                 .cmd(cmd::util::calc)
                 .min_args(1)
                 .usage("expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}")
-            })
-            .command("logs", |c| { c
-                .desc("Generate a log file for this channel to the current timestamp.")
-                .cmd(cmd::util::get_history)
-                .known_as("log")
-            })
-        })
+                }).command("logs", |c| {
+                    c.desc("Generate a log file for this channel to the current timestamp.")
+                        .cmd(cmd::util::get_history)
+                        .known_as("log")
+                })
+            }),
     );
 
-    client.start()?;
+    key::init(&mut client)?;
+    client.start().map_err(SyncFailure::new)?;
 
     Ok(())
 }

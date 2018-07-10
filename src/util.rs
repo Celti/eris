@@ -1,10 +1,10 @@
-use serenity::model::id::{ChannelId, UserId};
-use serenity::{Error, CACHE};
+use serenity::model::{
+    channel::Message,
+    id::{ChannelId, UserId},
+};
+use serenity::{client::Context, Error, CACHE};
 
-pub fn cached_display_name(
-    channel_id: ChannelId,
-    user_id: UserId,
-) -> Result<String, Error> {
+pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<String, Error> {
     let cache = CACHE.read();
 
     // If this is a guild channel and the user is a member...
@@ -18,4 +18,13 @@ pub fn cached_display_name(
 
     // ...otherwise, just use their username.
     Ok(user_id.get()?.name)
+}
+
+pub fn cached_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
+    let map = ctx.data.lock();
+    let cache = map.get::<crate::key::PrefixCache>()?;
+    cache
+        .get(&msg.guild_id()?)
+        .filter(|s| !s.is_empty())
+        .cloned()
 }

@@ -1,5 +1,5 @@
-use serenity::command;
 use rand::Rng;
+use serenity::command;
 
 command!(flip(_ctx, msg) {
     let mut rng = rand::thread_rng();
@@ -45,4 +45,3 @@ command!(eight(_ctx, msg) {
 
     msg.reply(rand::thread_rng().choose(&ANSWERS).unwrap())?;
 });
-

@@ -1,7 +1,7 @@
-use serenity::command;
 use self::parse::Roll;
+use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static};
 use regex::Regex;
-use lazy_static::{lazy_static, __lazy_static_create, __lazy_static_internal}; // FIXME use_extern_macros
+use serenity::command; // FIXME use_extern_macros
 
 // TODO versus modes for games besides GURPS
 
@@ -29,7 +29,7 @@ command!(roll(_ctx, msg, args) {
         } else {
             vec![res]
         };
-    
+
         if let Some(c) = caps.name("c") {
             comment.push_str(&format!(" `{}`", c.as_str()));
         }
@@ -80,17 +80,20 @@ command!(roll(_ctx, msg, args) {
 });
 
 mod parse {
-    use lazy_static::{lazy_static, __lazy_static_create, __lazy_static_internal}; // FIXME use_extern_macros
+    use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static}; // FIXME use_extern_macros
     use rand::distributions::{Distribution, Uniform};
     use regex::Regex;
-    use std::{fmt::{Display, Formatter, Result as FmtResult}, str::FromStr};
     use std::{error::Error as StdError, num::ParseIntError};
+    use std::{
+        fmt::{Display, Formatter, Result as FmtResult},
+        str::FromStr,
+    };
 
     fn normalize_str(s: &str) -> String {
         s.to_lowercase()
-         .chars()
-         .filter(|c| !c.is_whitespace())
-         .collect::<String>()
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>()
     }
 
     #[derive(Clone, Debug)]
@@ -101,15 +104,18 @@ mod parse {
 
     impl Roll {
         pub fn new(t: Vec<Term>) -> Self {
-            let terms = t.into_iter().map(|term| term.with_value()).collect::<Vec<_>>();
+            let terms = t
+                .into_iter()
+                .map(|term| term.with_value())
+                .collect::<Vec<_>>();
 
             let mut total = 0;
             let mut op: Term = Term::Add;
 
             for (term, values) in &mut terms.clone() {
                 match term {
-                    Term::Dice{..} | Term::Num(_) => {
-                        let i = if let Term::Dice{t, ..} = term {
+                    Term::Dice { .. } | Term::Num(_) => {
+                        let i = if let Term::Dice { t, .. } = term {
                             if let Some(t) = t {
                                 values.sort_unstable();
 
@@ -134,12 +140,13 @@ mod parse {
                             Term::Div => total /= i,
                             Term::Rem => total %= i,
                             Term::Pow => total = total.pow(i as u32),
-                            _         => unreachable!(),
+                            _ => unreachable!(),
                         }
                     }
 
-                    Term::Add | Term::Sub | Term::Mul |
-                    Term::Div | Term::Rem | Term::Pow => op = *term,
+                    Term::Add | Term::Sub | Term::Mul | Term::Div | Term::Rem | Term::Pow => {
+                        op = *term
+                    }
                 }
             }
 
@@ -154,10 +161,14 @@ mod parse {
             for (term, values) in &self.terms {
                 out.push_str(" ");
                 match term {
-                    Term::Add | Term::Sub | Term::Mul |
-                    Term::Div | Term::Rem | Term::Pow |
-                    Term::Num(_) => out.push_str(&term.to_string()),
-                    Term::Dice {..} => out.push_str(&format!("{}{:?}", term, values)),
+                    Term::Add
+                    | Term::Sub
+                    | Term::Mul
+                    | Term::Div
+                    | Term::Rem
+                    | Term::Pow
+                    | Term::Num(_) => out.push_str(&term.to_string()),
+                    Term::Dice { .. } => out.push_str(&format!("{}{:?}", term, values)),
                 }
             }
 
@@ -171,9 +182,9 @@ mod parse {
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             lazy_static! {
                 static ref RE: Regex = Regex::new(r"(?x)
-                    \d+ d \d+ (?: [bw] \d+ ) | # Term::Dice
-                    [-+×x*/\\÷%^]            | # Term::<Op>
-                    -? \d+                     # Term::Num
+                    \d+ d \d+ (?: [bw] \d+ )? | # Term::Dice
+                    [-+×x*/\\÷%^]             | # Term::<Op>
+                    -? \d+                      # Term::Num
                 ").unwrap();
             }
 
@@ -203,7 +214,7 @@ mod parse {
         fn fmt(&self, f: &mut Formatter) -> FmtResult {
             match *self {
                 ParseRollError::Int(ref err) => write!(f, "{}", err),
-                ParseRollError::Empty        => write!(f, "cannot parse term from empty string"),
+                ParseRollError::Empty => write!(f, "cannot parse term from empty string"),
             }
         }
     }
@@ -212,7 +223,7 @@ mod parse {
         fn cause(&self) -> Option<&std::error::Error> {
             match *self {
                 ParseRollError::Int(ref err) => Some(err),
-                ParseRollError::Empty        => None,
+                ParseRollError::Empty => None,
             }
         }
     }
@@ -228,9 +239,7 @@ mod parse {
         type IntoIter = RollIterator;
 
         fn into_iter(self) -> Self::IntoIter {
-            RollIterator {
-                roll: self,
-            }
+            RollIterator { roll: self }
         }
     }
 
@@ -252,10 +261,13 @@ mod parse {
         }
     }
 
-
     #[derive(Clone, Copy, Debug)]
     crate enum Term {
-        Dice { n: usize, s: usize, t: Option<isize> },
+        Dice {
+            n: usize,
+            s: usize,
+            t: Option<isize>,
+        },
         Num(isize),
         Add,
         Sub,
@@ -268,13 +280,13 @@ mod parse {
     impl Term {
         fn with_value(self) -> (Term, Vec<isize>) {
             match self {
-                Term::Dice{n, s, ..} => {
+                Term::Dice { n, s, .. } => {
                     let die = Uniform::new_inclusive(1, s as isize);
                     let mut rng = rand::thread_rng();
                     (self, die.sample_iter(&mut rng).take(n).collect())
                 }
                 Term::Num(i) => (self, vec![i]),
-                _            => (self, Vec::new()),
+                _ => (self, Vec::new()),
             }
         }
     }
@@ -282,7 +294,7 @@ mod parse {
     impl Display for Term {
         fn fmt(&self, f: &mut Formatter) -> FmtResult {
             match self {
-                Term::Dice{n,s,t} => {
+                Term::Dice { n, s, t } => {
                     if let Some(t) = t {
                         if t.is_positive() {
                             write!(f, "{}d{}b{}", n, s, t.abs())
@@ -295,13 +307,13 @@ mod parse {
                         write!(f, "{}d{}", n, s)
                     }
                 }
-                Term::Num(i)    => write!(f, "{}", i),
-                Term::Add       => write!(f, "+"),
-                Term::Sub       => write!(f, "-"),
-                Term::Mul       => write!(f, "×"),
-                Term::Div       => write!(f, "/"),
-                Term::Rem       => write!(f, "%"),
-                Term::Pow       => write!(f, "^"),
+                Term::Num(i) => write!(f, "{}", i),
+                Term::Add => write!(f, "+"),
+                Term::Sub => write!(f, "-"),
+                Term::Mul => write!(f, "×"),
+                Term::Div => write!(f, "/"),
+                Term::Rem => write!(f, "%"),
+                Term::Pow => write!(f, "^"),
             }
         }
     }
@@ -336,18 +348,18 @@ mod parse {
             } else {
                 let mut c = s.chars();
                 match c.next() {
-                    Some('+')  => Ok(Term::Add),
-                    Some('-')  => Ok(Term::Sub),
-                    Some('*')  => Ok(Term::Mul),
-                    Some('x')  => Ok(Term::Mul),
-                    Some('×')  => Ok(Term::Mul),
-                    Some('/')  => Ok(Term::Div),
+                    Some('+') => Ok(Term::Add),
+                    Some('-') => Ok(Term::Sub),
+                    Some('*') => Ok(Term::Mul),
+                    Some('x') => Ok(Term::Mul),
+                    Some('×') => Ok(Term::Mul),
+                    Some('/') => Ok(Term::Div),
                     Some('\\') => Ok(Term::Div),
-                    Some('÷')  => Ok(Term::Div),
-                    Some('%')  => Ok(Term::Rem),
-                    Some('^')  => Ok(Term::Pow),
-                    Some(_)    => Ok(Term::Num(s.parse()?)),
-                    None       => unreachable!(),
+                    Some('÷') => Ok(Term::Div),
+                    Some('%') => Ok(Term::Rem),
+                    Some('^') => Ok(Term::Pow),
+                    Some(_) => Ok(Term::Num(s.parse()?)),
+                    None => unreachable!(),
                 }
             }
         }
