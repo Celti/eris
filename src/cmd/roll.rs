@@ -27,8 +27,8 @@ crate fn process_args(mut args: Args) -> Result<String, CommandError> {
     let mut out = Vec::new();
 
     lazy_static! { static ref RE: Regex = Regex::new(r"(?x) (?:
-        \s* v(?:s|ersus)? \s* (?P<t1>\S+?.*?)?? [\s-] (?P<v1>-?\d+) (?: \s* r(?:e|epeat)? \s* (?P<r2>\d+) \s* )? |
-        \s* r(?:e|epeat)? \s* (?P<r1>\d+) (?: \s* v(?:s|ersus)? \s* (?P<t2>\S+?.*?)? [\s-] (?P<v2>-?\d+) \s* )?
+        \s* v(?:s|ersus)? \s* (?P<t1>\D+?.*?)?? [\s-] (?P<v1>-?\d+) (?: \s* r(?:e|epeat)? \s* (?P<r2>\d+) \s* )? |
+        \s* r(?:e|epeat)? \s* (?P<r1>\d+) (?: \s* v(?:s|ersus)? \s* (?P<t2>\D+?.*?)? [\s-] (?P<v2>-?\d+) \s* )?
     ) \s* (?:\#(?P<c>.+)$)?").unwrap(); }
 
     if let Some(caps) = RE.captures(&rem) {
