@@ -1,5 +1,6 @@
 crate mod admin;
 crate mod gurps;
+crate mod memory;
 crate mod misc;
 crate mod random;
 crate mod roll;

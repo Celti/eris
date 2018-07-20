@@ -1,7 +1,12 @@
-#![feature(rust_2018_preview, use_extern_macros, nll)]
+#![feature(rust_2018_preview)]
+#![feature(entry_or_default)]
+#![feature(nll)]
+#![feature(use_extern_macros)]
+#![feature(type_ascription)]
 
 mod cmd;
-mod key;
+mod db;
+mod types;
 mod util;
 
 use crate::util::cached_display_name;
@@ -79,7 +84,7 @@ impl EventHandler for Eris {
     }
 
     fn reaction_add(&self, ctx: Context, re: Reaction) {
-        use crate::key::DiceCache;
+        use crate::types::DiceCache;
         use serenity::framework::standard::{Args, CommandError};
 
         // Don't respond to our own reactions.
@@ -93,29 +98,28 @@ impl EventHandler for Eris {
             ReactionType::Unicode(ref x) if x == "🎲" => {
                 let mut map = ctx.data.lock();
                 let cache = map.get_mut::<DiceCache>().unwrap();
-                let dice = if let Some(dice) = cache.get(&re.message_id) {
-                    dice.clone()
-                } else {
-                    info!("Die roll is not in message cache.");
-                    return;
-                };
 
+                #[cfg_attr(feature = "cargo-clippy", allow(unit_arg))]
                 let result: Result<(), CommandError> = do catch {
-                    let name = re.user_id.mention();
-                    let roll = cmd::roll::process_args(Args::new(&dice, &[' '.to_string()]))?;
-                    let sent = re.channel_id.send_message(|m| {
-                        m.content(format!("**{} rolled:**{}", name, roll))
-                            .reactions(vec!['🎲'])
-                    })?;
+                    if let Some(expr) = cache.remove(&re.message_id) {
+                        re.message()?.delete_reactions()?;
 
-                    re.channel_id
-                        .message(re.message_id)
-                        .and_then(|m| m.delete_reactions())?;
-                    cache.insert(sent.id, dice);
+                        let args = Args::new(&expr, &[" ".to_string()]);
+                        let name = re.user_id.mention();
+                        let roll = cmd::roll::process_args(args)?;
+                        let sent = re.channel_id.send_message(|m| { m
+                            .content(format!("**{} rolled:**{}", name, roll))
+                            .reactions(vec!['🎲'])
+                        })?;
+
+                        cache.insert(sent.id, expr);
+                    } else {
+                        return info!("Die roll is not in message cache.");
+                    }
                 };
 
                 if let Err(err) = result {
-                    error!("error repeating dice roll: {:?}", err);
+                   return error!("error repeating dice roll: {:?}", err);
                 }
             }
             // An unconfigured reaction type.
@@ -134,17 +138,15 @@ fn main() -> Result<(), ExitFailure> {
     let token = std::env::var("DISCORD_TOKEN")?;
     let mut client = Client::new(&token, Eris).map_err(SyncFailure::new)?;
 
-    client.with_framework(
-        StandardFramework::new()
-            .configure(|c| {
-                c
+    client.with_framework(StandardFramework::new()
+        .configure(|c| { c
             .allow_dm(true)
             .allow_whitespace(false)
             // .blocked_guilds(hashset!{GuildId(1), GuildId(2)})
             // .blocked_users(hashset!{UserId(1), UserId(2)})
             // .depth(5)
             // .disabled_commands(hashset!{"foo", "fnord"})
-            .dynamic_prefix(util::cached_prefix)
+            .dynamic_prefix(db::dynamic_prefix)
             .ignore_bots(true)
             .ignore_webhooks(true)
             .on_mention(true)
@@ -152,93 +154,137 @@ fn main() -> Result<(), ExitFailure> {
             // .owners(hashset!{info.owner.id})
             // .delimiters(&[", or ", ", ", ",", " or ", " "])
             .case_insensitivity(true)
+        })
+
+        .after(|_ctx, _msg, cmd, res| match res {
+            Ok(()) => info!("Successfully processed command '{}'", cmd),
+            Err(e) => error!("Error processing command '{}': {:?}", cmd, e),
+        })
+
+        .on_dispatch_error(|_ctx, msg, err| {
+            // TODO match on DispatchError enum and customise responses.
+            let _ = msg.channel_id.say(&format!("Could not execute command: {:?}", err));
+        })
+
+        .help(help_commands::with_embeds)
+
+        .group("Admin", |g| { g
+            .command("nick", |c| { c
+                .cmd(cmd::admin::change_nick)
+                .desc("Change Eris's nickname on the current guild.")
+                .guild_only(true)
+                .required_permissions(Permissions::ADMINISTRATOR)
             })
-            .after(|_ctx, _msg, cmd, res| match res {
-                Ok(()) => info!("Successfully processed command '{}'", cmd),
-                Err(e) => error!("Error processing command '{}': {:?}", cmd, e),
+            .command("playing", |c| { c
+                .cmd(cmd::admin::set_playing)
+                .desc("Set the currently displayed game tag.")
+                .known_as("play")
+                .min_args(1)
+                .owners_only(true)
             })
-            .on_dispatch_error(|_ctx, msg, err| {
-                // TODO match on DispatchError enum and customise responses.
-                let _ = msg
-                    .channel_id
-                    .say(&format!("Could not execute command: {:?}", err));
+            .command("prefix", |c| { c
+                .cmd(cmd::admin::change_guild_prefix)
+                .desc("Change Eris's command prefix on the current guild.")
+                .guild_only(true)
+                .required_permissions(Permissions::ADMINISTRATOR)
             })
-            .help(help_commands::with_embeds)
-            .group("Admin", |g| {
-                g.command("nick", |c| {
-                    c.desc("Change Eris's nickname on the current guild.")
-                        .cmd(cmd::admin::change_nick)
-                        .guild_only(true)
-                        .required_permissions(Permissions::ADMINISTRATOR)
-                }).command("playing", |c| {
-                        c.desc("Set the currently displayed game tag.")
-                            .cmd(cmd::admin::set_playing)
-                            .known_as("play")
-                            .min_args(1)
-                            .owners_only(true)
-                    })
-                    .command("prefix", |c| {
-                        c.desc("Change Eris's command prefix on the current guild.")
-                            .cmd(cmd::admin::change_guild_prefix)
-                            .guild_only(true)
-                            .required_permissions(Permissions::ADMINISTRATOR)
-                            .after(key::sync)
-                    })
-                    .command("quit", |c| {
-                        c.desc("Disconnect Eris from Discord.")
-                            .cmd(cmd::admin::quit)
-                            .owners_only(true)
-                    })
+            .command("quit", |c| { c
+                .cmd(cmd::admin::quit)
+                .desc("Disconnect Eris from Discord.")
+                .owners_only(true)
             })
-            .group("GURPS", |g| {
-                g.command("st", |c| {
-                    c.desc("Calculate Basic Lift and damage for a given ST.")
-                        .cmd(cmd::gurps::calc_st)
-                        .num_args(1)
-                })
+        })
+        .group("GURPS", |g| { g
+            .command("st", |c| { c
+                .cmd(cmd::gurps::calc_st)
+                .desc("Calculate Basic Lift and damage for a given ST.")
+                .num_args(1)
             })
-            .group("Toys", |g| {
-                g.command("fnord", |c| {
-                    c.desc("Receive a message from the conspiracy.")
-                        .cmd(cmd::misc::fnord)
-                }).command("ddate", |c| {
-                    c.desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
-                        .cmd(cmd::misc::ddate)
-                })
+        })
+        .group("Memory", |g| { g
+            .command("recall", |c| { c
+                .cmd(cmd::memory::recall)
+                .desc("Retrieve a keyword definition.")
+                .num_args(1)
             })
-            .group("Randomizers", |g| {
-                g.command("choose", |c| {
-                    c.batch_known_as(&["decide", "pick"])
-                        .desc("Choose between multiple comma-delimited options.")
-                        .example("Option A, Option B, or Option C")
-                        .cmd(cmd::random::choose)
-                }).command("ask", |c| {
-                        c.batch_known_as(&["eight", "8ball"])
-                            .desc("Ask the Magic 8 Ball a yes-or-no question.")
-                            .cmd(cmd::random::eight)
-                    })
-                    .command("flip", |c| c.desc("Flip a coin.").cmd(cmd::random::flip))
-                    .command("roll", |c| {
-                        c.desc("Calculate an expression in algebraic dice notation.")
-                            .cmd(cmd::roll::dice)
-                    })
+            .command("next", |c| { c
+                .cmd(cmd::memory::next)
+                .desc("Retrieve the next keyword definition.")
+                .num_args(0)
             })
-            .group("Tools", |g| {
-                g.command("calc", |c| {
-                    c
-                .desc("A unit-aware precision calculator based on GNU units.")
+            .command("prev", |c| { c
+                .cmd(cmd::memory::prev)
+                .desc("Retrieve the previous keyword definition.")
+                .num_args(0)
+            })
+            .command("details", |c| { c
+                .cmd(cmd::memory::details)
+                .desc("Retrieve metadata for the current keyword definition.")
+                .num_args(0)
+            })
+            .command("remember", |c| { c
+                .cmd(cmd::memory::remember)
+                .desc("Add a new keyword definition.")
+                .min_args(2)
+            })
+            .command("forget", |c| { c
+                .cmd(cmd::memory::forget)
+                .desc("Forget a specific keyword definition.")
+                .min_args(2)
+            })
+            .command("set", |c| { c
+                .cmd(cmd::memory::set)
+                .desc("Set keyword options.")
+                .num_args(3)
+            })
+        })
+        .group("Randomizers", |g| { g
+            .command("choose", |c| { c
+                .cmd(cmd::random::choose)
+                .desc("Choose between multiple comma-delimited options.")
+                .batch_known_as(&["decide", "pick"])
+                .example("Option A, Option B, or Option C")
+            })
+            .command("ask", |c| { c
+                .cmd(cmd::random::eight)
+                .desc("Ask the Magic 8 Ball a yes-or-no question.")
+                .batch_known_as(&["eight", "8ball"])
+            })
+            .command("flip", |c| { c
+                .cmd(cmd::random::flip)
+                .desc("Flip a coin.")
+            })
+            .command("roll", |c| { c
+                .cmd(cmd::roll::dice)
+                .desc("Calculate an expression in algebraic dice notation.")
+            })
+        })
+        .group("Tools", |g| { g
+            .command("calc", |c| { c
                 .cmd(cmd::util::calc)
+                .desc("A unit-aware precision calculator based on GNU units.")
                 .min_args(1)
                 .usage("expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}")
-                }).command("logs", |c| {
-                    c.desc("Generate a log file for this channel to the current timestamp.")
-                        .cmd(cmd::util::get_history)
-                        .known_as("log")
-                })
-            }),
+            })
+            .command("logs", |c| { c
+                .cmd(cmd::util::get_history)
+                .desc("Generate a log file for this channel to the current timestamp.")
+                .known_as("log")
+            })
+        })
+        .group("Toys", |g| { g
+            .command("fnord", |c| { c
+                .desc("Receive a message from the conspiracy.")
+                .cmd(cmd::misc::fnord)
+            })
+            .command("ddate", |c| { c
+                .cmd(cmd::misc::ddate)
+                .desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
+            })
+        })
     );
 
-    key::init(&mut client)?;
+    db::init(&mut client)?;
     client.start().map_err(SyncFailure::new)?;
 
     Ok(())

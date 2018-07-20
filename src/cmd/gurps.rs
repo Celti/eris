@@ -1,4 +1,5 @@
 use serenity::command;
+use crate::util::EpsilonEq;
 
 command!(calc_st(_ctx, msg, arg) {
     let st = arg.single::<f64>().unwrap();
@@ -19,10 +20,10 @@ command!(calc_st(_ctx, msg, arg) {
             format!("1d{}", st - 10.0)
         } else {
             match swing % 1. {
-                f if f == 0.00 => format!("{}d",   swing.floor()),
-                f if f == 0.25 => format!("{}d+1", swing.floor()),
-                f if f == 0.50 => format!("{}d+2", swing.floor()),
-                f if f == 0.75 => format!("{}d-1", swing.floor() + 1.0),
+                f if f.eps_eq(0.00) => format!("{}d",   swing.floor()),
+                f if f.eps_eq(0.25) => format!("{}d+1", swing.floor()),
+                f if f.eps_eq(0.50) => format!("{}d+2", swing.floor()),
+                f if f.eps_eq(0.75) => format!("{}d-1", swing.floor() + 1.0),
                 _ => unreachable!(),
             }
         };
@@ -32,10 +33,10 @@ command!(calc_st(_ctx, msg, arg) {
             format!("1d{}", st - 12.0)
         } else {
             match thrust % 1f64 {
-                f if f == 0.00 => format!("{}d",   thrust.floor()),
-                f if f == 0.25 => format!("{}d+1", thrust.floor()),
-                f if f == 0.50 => format!("{}d+2", thrust.floor()),
-                f if f == 0.75 => format!("{}d-1", thrust.floor() + 1.0),
+                f if f.eps_eq(0.00) => format!("{}d",   thrust.floor()),
+                f if f.eps_eq(0.25) => format!("{}d+1", thrust.floor()),
+                f if f.eps_eq(0.50) => format!("{}d+2", thrust.floor()),
+                f if f.eps_eq(0.75) => format!("{}d-1", thrust.floor() + 1.0),
                 _ => unreachable!(),
             }
         };

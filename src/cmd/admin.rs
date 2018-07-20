@@ -1,5 +1,4 @@
-use crate::key::{PrefixCache, ShardManager};
-use log::{info, log};
+use crate::types::*;
 use serenity::command;
 
 command!(change_nick(_ctx, msg, args) {
@@ -13,18 +12,17 @@ command!(change_nick(_ctx, msg, args) {
 });
 
 command!(change_guild_prefix(ctx, msg, args) {
-    let mut map = ctx.data.lock();
+    let map = ctx.data.lock();
+    let handle = map.get::<DatabaseHandle>().unwrap();
+    let db = handle.get()?;
+    let guild_id = msg.guild_id().unwrap().0 as i64;
+    let prefix = args.full().to_string();
 
-    let cache = map.get_mut::<PrefixCache>().unwrap();
-    let guild = msg.guild_id().unwrap();
-    let new   = args.full().to_string();
+    db.execute("INSERT INTO guilds (guild_id, prefix) VALUES (?1, ?2)
+        ON CONFLICT (guild_id) DO UPDATE SET prefix=excluded.prefix",
+        &[&guild_id, &prefix])?;
 
-    if let Some(old) = cache.insert(guild, new.clone()) {
-        info!("PREFIX: old prefix is {}", old);
-        msg.reply(&format!("Changed prefix from `{}` to `{}`.", old, new))?;
-    } else {
-        msg.reply(&format!("Changed prefix from default to `{}`.",  new))?;
-    }
+    msg.reply(&format!("Changed prefix to `{}`.",  prefix))?;
 });
 
 command!(set_playing(ctx, msg, args) {

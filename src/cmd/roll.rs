@@ -1,16 +1,13 @@
+use crate::types::*;
 use self::parse::Roll;
-use crate::key::DiceCache;
 use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static};
 use regex::Regex;
-use serenity::{
-    command,
-    framework::standard::{Args, CommandError},
-    prelude::Mentionable,
-};
+use serenity::{command, framework::standard::{Args, CommandError}, prelude::Mentionable};
 
 // TODO versus modes for games besides GURPS
 
 command!(dice(ctx, msg, args) {
+    let expr = args.full().to_owned();
     let name = msg.author.id.mention();
     let roll = process_args(args)?;
     let sent = msg.channel_id.send_message(|m| { m
@@ -20,7 +17,7 @@ command!(dice(ctx, msg, args) {
 
     let mut map = ctx.data.lock();
     let mut cache = map.get_mut::<DiceCache>().unwrap();
-    cache.insert(sent.id, msg.content_safe());
+    cache.insert(sent.id, expr);
 });
 
 crate fn process_args(mut args: Args) -> Result<String, CommandError> {
