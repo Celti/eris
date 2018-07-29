@@ -1,18 +1,24 @@
+#![allow(proc_macro_derive_resolution_fallback)] // diesel <= 1.3.2
 #![feature(rust_2018_preview)]
 #![feature(entry_or_default)]
 #![feature(nll)]
-#![feature(use_extern_macros)]
-#![feature(type_ascription)]
+//#![feature(use_extern_macros)]
+
+// FIXME use_extern_macros
+#[macro_use] extern crate diesel;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate log;
+#[macro_use] extern crate serenity;
 
 mod cmd;
 mod db;
 mod types;
 mod util;
+mod schema;
 
 use crate::util::cached_display_name;
 use exitfailure::ExitFailure;
 use failure::SyncFailure;
-use log::{debug, error, info, log, warn}; // trace
 use serenity::{model::prelude::*, prelude::*};
 
 struct Eris;
@@ -188,6 +194,12 @@ fn main() -> Result<(), ExitFailure> {
                 .guild_only(true)
                 .required_permissions(Permissions::ADMINISTRATOR)
             })
+            .command("topic", |c| { c
+                .cmd(cmd::admin::change_topic)
+                .desc("Change the current channel's topic.")
+                .guild_only(true)
+                .required_permissions(Permissions::MANAGE_CHANNELS)
+            })
             .command("quit", |c| { c
                 .cmd(cmd::admin::quit)
                 .desc("Disconnect Eris from Discord.")
@@ -270,6 +282,11 @@ fn main() -> Result<(), ExitFailure> {
                 .cmd(cmd::util::get_history)
                 .desc("Generate a log file for this channel to the current timestamp.")
                 .known_as("log")
+            })
+            .command("when", |c| { c
+                .cmd(cmd::util::get_timestamp)
+                .desc("Get the timestamp of the specified Discord snowflake (message ID).")
+                .batch_known_as(&["time", "timestamp", "date", "datestamp"])
             })
         })
         .group("Toys", |g| { g

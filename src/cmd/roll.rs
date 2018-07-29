@@ -1,8 +1,11 @@
+// FIXME use_extern_macros
+// use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static};
+// use serenity::command;
+
 use crate::types::*;
 use self::parse::Roll;
-use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static};
 use regex::Regex;
-use serenity::{command, framework::standard::{Args, CommandError}, prelude::Mentionable};
+use serenity::{framework::standard::{Args, CommandError}, prelude::Mentionable};
 
 // TODO versus modes for games besides GURPS
 
@@ -112,7 +115,6 @@ crate fn process_args(mut args: Args) -> Result<String, CommandError> {
 }
 
 mod parse {
-    use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static}; // FIXME use_extern_macros
     use rand::distributions::{Distribution, Uniform};
     use regex::Regex;
     use std::{error::Error as StdError, num::ParseIntError};

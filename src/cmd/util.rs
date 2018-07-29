@@ -1,4 +1,7 @@
-use serenity::command;
+// FIXME use_extern_macros
+// use serenity::command;
+
+use serenity::model::id::MessageId;
 use std::process::Command;
 
 command!(calc(_ctx, msg, args) {
@@ -54,4 +57,10 @@ command!(get_history(_ctx, msg, _args) {
     let log_file = AttachmentType::Bytes((buf.as_bytes(), &file_name));
 
     msg.channel_id.send_files(vec![log_file], |m| m.content(""))?;
+});
+
+command!(get_timestamp(_ctx, msg, args) {
+    let message = MessageId(args.single::<u64>()?);
+    let stamp = message.created_at();
+    msg.reply(&format!("Snowflake {} was created at {} UTC.", message, stamp))?;
 });

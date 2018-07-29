@@ -1,47 +1,59 @@
-use serenity::command;
-use serenity::framework::standard::CommandError;
-use serenity::prelude::Mentionable;
-use serenity::model::prelude::Message;
+// FIXME use_extern_macros
+// use serenity::command;
+
+use crate::schema::*;
 use crate::types::*;
-use chrono::Utc;
+use diesel::prelude::*;
 use rand::Rng;
-use serde_rusqlite::{from_row, from_rows, to_params};
+use diesel::result::Error::{DatabaseError as QueryViolation, NotFound as QueryNotFound};
+use diesel::result::DatabaseErrorKind::UniqueViolation as Unique;
 
 // match <kw> <part..> - load definitions matching <part> into cache
 // find <partial> - list keywords matching <partial>
+
+fn named_keyword_readable(name: &str, user: i64) -> keywords::BoxedQuery<DB> {
+    keywords::table.find(name)
+        .filter(keywords::owner.eq(user).or(keywords::hidden.eq(false)))
+        .into_boxed()
+}
+
+fn named_keyword_writable(name: &str, user: i64) -> keywords::BoxedQuery<DB> {
+    keywords::table.find(name)
+        .filter(keywords::owner.eq(user).or(keywords::hidden.eq(false).and(keywords::protect.eq(false))))
+        .into_boxed()
+}
 
 command!(recall(ctx, msg, args) {
     let mut map = ctx.data.lock();
     let find = args.single::<String>()?;
 
-    let result: Result<_,CommandError> = do catch {
-        let handle = map.get::<DatabaseHandle>().unwrap();
-        let db     = handle.get()?;
+    let handle = map.get::<DatabaseHandle>().unwrap();
+    let db     = handle.get()?;
 
-        let keyword = check_keyword(&db, &find, &msg)?.unwrap_or_default();
+    let result: QueryResult<_> = do catch {
+        let keyword = named_keyword_readable(&find, msg.author.id.0 as i64).first::<KeywordEntry>(&*db)?;
 
-        let mut stmt = db.prepare("SELECT * FROM definitions WHERE keyword=?")?;
-        let mut rows = from_rows::<DefinitionEntry>(stmt.query(&[&find])?).collect::<Vec<_>>();
-
-        if rows.is_empty() {
-            Err("")?;
-        }
+        let mut entries = definitions::table.filter(definitions::keyword.eq(&find)).load::<DefinitionEntry>(&*db)?;
 
         if keyword.shuffle {
-            rand::thread_rng().shuffle(&mut rows);
+            rand::thread_rng().shuffle(&mut entries);
         }
 
-        CurrentMemory { idx: 0, key: keyword, def: rows }
+        if entries.is_empty() {
+            Err(QueryNotFound)?;
+        }
+
+        CurrentMemory { idx: 0, key: keyword, def: entries }
     };
 
-    if let Ok(cur) = result {
-        msg.channel_id.say(&cur.content())?;
-        let mut cache = map.entry::<MemoryCache>().or_insert(std::collections::HashMap::new());
-        cache.insert(msg.channel_id, cur);
-    } else {
-        msg.channel_id.say(&format!("Sorry, I don't know anything about {}.", find))?;
-        result?;
-    }
+    match result {
+        Ok(ref c)          => msg.channel_id.say(&c.content())?,
+        Err(QueryNotFound) => msg.channel_id.say(&format!("Sorry, I don't know anything about {}.", find))?,
+        Err(_)             => msg.channel_id.say("Sorry, an error occurred.")?,
+    };
+
+    let mut cache = map.entry::<MemoryCache>().or_insert(std::collections::HashMap::new());
+    cache.insert(msg.channel_id, result?);
 });
 
 command!(next(ctx, msg) {
@@ -84,19 +96,26 @@ command!(remember(ctx, msg, args) {
     let keyword    = args.single::<String>()?;
     let definition = args.multiple::<String>()?.join(" ");
     let submitter  = msg.author.id;
-    let timestamp  = msg.timestamp.with_timezone(&Utc);
 
-    if check_keyword(&db, &keyword, &msg)?.is_none() {
-        db.execute("INSERT OR IGNORE INTO keywords VALUES (?, ?, true, false, false, false)",
-                   &to_params((&keyword, &submitter))?.to_slice() )?;
-    }
+    let result: QueryResult<_> = do catch {
+        if named_keyword_writable(&keyword, msg.author.id.0 as i64).first::<KeywordEntry>(&*db).optional()?.is_none() {
+            diesel::insert_into(keywords::table).values(keywords::keyword.eq(&keyword))
+                .execute(&*db).or(Err(QueryNotFound))?;
+        }
 
-    if let Ok(1) = db.execute("INSERT INTO definitions VALUES (?, ?, ?, ?)",
-                              &to_params((&keyword, &definition, &submitter, &timestamp))?.to_slice()) {
-        msg.channel_id.say(&format!("Entry added for {}.", keyword))?;
-    } else {
-        msg.channel_id.say(&format!("I already know that about {}.", keyword))?;
-    }
+        diesel::insert_into(definitions::table).values(&NewDefinitionEntry {
+            keyword:    &keyword,
+            definition: &definition,
+            submitter:  submitter.0 as i64,
+        }).execute(&*db)?
+    };
+
+    match result {
+        Ok(1) => msg.channel_id.say(&format!("Entry added for {}.", keyword))?,
+        Err(QueryViolation(Unique,_)) => msg.channel_id.say(&format!("I already know that about {}.", keyword))?,
+        Err(QueryNotFound) => msg.channel_id.say(&format!("You're not cleared to edit {}.", keyword))?,
+        Ok(_) | Err(_) => msg.channel_id.say("Sorry, an error occurred.")?,
+    };
 });
 
 command!(forget(ctx, msg, args) {
@@ -107,13 +126,17 @@ command!(forget(ctx, msg, args) {
     let keyword    = args.single::<String>()?;
     let definition = args.multiple::<String>()?.join(" ");
 
-    check_keyword(&db, &keyword, &msg)?;
+    let result: QueryResult<_> = do catch {
+        named_keyword_writable(&keyword, msg.author.id.0 as i64).first::<KeywordEntry>(&*db)?;
+        diesel::delete(definitions::table.find((&keyword, &definition))).execute(&*db)?
+    };
 
-    if let Ok(1) = db.execute("DELETE FROM definitions WHERE keyword = ? AND definition = ?", &[&keyword, &definition]) {
-        msg.channel_id.say(&format!("Entry removed for {}.", keyword))?;
-    } else {
-        msg.channel_id.say(&format!("Could not remove entry for {}.", keyword))?;
-    }
+    match result {
+        Ok(1) => msg.channel_id.say(&format!("Entry removed for {}.", keyword))?,
+        Ok(0) => msg.channel_id.say(&format!("Could not remove entry for {}.", keyword))?,
+        Err(QueryNotFound) => msg.channel_id.say(&format!("You're not cleared to edit {}.", keyword))?,
+        Ok(_) | Err(_) => msg.channel_id.say("Sorry, an error occurred.")?,
+    };
 });
 
 command!(set(ctx, msg, args) {
@@ -121,35 +144,30 @@ command!(set(ctx, msg, args) {
     let handle = map.get::<DatabaseHandle>().unwrap();
     let db     = handle.get()?;
 
+    let mut update = NewKeywordEntry::default();
+
     let keyword = args.single::<String>()?;
     let option  = args.single::<String>()?;
     let value   = args.single::<bool>()?;
+    let owner   = msg.author.id.0 as i64;
 
-    let mut statement = match option.trim() {
-        "protect" => db.prepare("UPDATE OR IGNORE keywords SET protect = ? WHERE keyword = ?")?,
-        "hidden"  => db.prepare("UPDATE OR IGNORE keywords SET hidden = ? WHERE keyword = ?")?,
-        "bare"    => db.prepare("UPDATE OR IGNORE keywords SET true = ? WHERE keyword = ?")?,
+    match option.trim() {
+        "bare"    => update.bare(value, owner),
+        "hidden"  => update.hidden(value, owner),
+        "protect" => update.protect(value, owner),
+        "shuffle" => update.shuffle(value),
         _         => Err("invalid option type")?,
     };
 
-    check_keyword(&db, &keyword, &msg)?;
+    let result: QueryResult<_> = do catch {
+        named_keyword_writable(&keyword, msg.author.id.0 as i64).first::<KeywordEntry>(&*db)?;
+        diesel::update(keywords::table.find(&keyword)).set(&update).execute(&*db)?
+    };
 
-    if let Ok(1) = statement.execute(&[&value, &keyword]) {
-        msg.channel_id.say(&format!("Option `{}` for {} now set to {}", option, keyword, value))?;
-    } else {
-        msg.channel_id.say(&format!("Could not set `{}` for {}.", option, keyword))?;
-    }
+    match result {
+        Ok(1) => msg.channel_id.say(&format!("Option `{}` for {} now set to {}", option, keyword, value))?,
+        Ok(0) => msg.channel_id.say(&format!("Could not set `{}` for {}.", option, keyword))?,
+        Err(QueryNotFound) => msg.channel_id.say(&format!("You're not cleared to edit {}.", keyword))?,
+        Ok(_) | Err(_) => msg.channel_id.say("Sorry, an error occurred.")?,
+    };
 });
-
-fn check_keyword(db: &DatabaseConnection, keyword: &str, msg: &Message) -> Result<Option<KeywordEntry>, CommandError> {
-    if let Ok(Ok(key)) = db.query_row("SELECT * FROM keywords WHERE keyword=?", &[&keyword], from_row::<KeywordEntry>) {
-        if (key.protect || key.hidden) && key.owner != msg.author.id {
-            msg.channel_id.say(&format!("Sorry, only {} is cleared for that.", key.owner.mention()))?;
-            Err("Unauthorised".into())
-        } else {
-            Ok(Some(key))
-        }
-    } else {
-        Ok(None)
-    }
-}

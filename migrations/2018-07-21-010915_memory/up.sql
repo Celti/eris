@@ -1,0 +1,17 @@
+CREATE TABLE keywords (
+	keyword TEXT PRIMARY KEY,
+	owner   BIGINT DEFAULT NULL,
+	shuffle BOOLEAN NOT NULL DEFAULT TRUE,
+	protect BOOLEAN NOT NULL DEFAULT FALSE,
+	hidden  BOOLEAN NOT NULL DEFAULT FALSE,
+	bare    BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE definitions (
+	keyword    TEXT   NOT NULL REFERENCES keywords(keyword),
+	definition TEXT   NOT NULL,
+	submitter  BIGINT NOT NULL,
+	timestamp  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+	PRIMARY KEY (keyword, definition)
+);

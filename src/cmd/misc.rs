@@ -1,4 +1,5 @@
-use serenity::command;
+// FIXME use_extern_macros
+// use serenity::command;
 
 command!(fnord(_ctx, msg) {
     msg.channel_id.say(&fnorder::fnorder())?;

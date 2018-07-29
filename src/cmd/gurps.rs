@@ -1,4 +1,6 @@
-use serenity::command;
+// FIXME use_extern_macros
+// use serenity::command;
+
 use crate::util::EpsilonEq;
 
 command!(calc_st(_ctx, msg, arg) {
