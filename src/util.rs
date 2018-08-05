@@ -1,5 +1,34 @@
-use serenity::model::id::{ChannelId, UserId};
-use serenity::{Error, CACHE};
+use serenity::model::{channel::Message, id::{ChannelId, UserId}};
+use serenity::{client::Context, Error, CACHE};
+
+pub fn bareword_handler(ctx: &mut Context, msg: &Message, name: &str) {
+    use crate::schema::*;
+    use crate::types::*;
+    use diesel::prelude::*;
+    use rand::Rng;
+    use diesel::result::Error::{NotFound as QueryNotFound};
+
+    let map    = ctx.data.lock();
+    let handle = map.get::<DatabaseHandle>().unwrap();
+    let db     = handle.get().unwrap();
+
+    let result: QueryResult<_> = do catch {
+        let keyword = keywords::table.find(name).filter(keywords::bare.eq(true)).first::<KeywordEntry>(&*db)?;
+        let mut entries = definitions::table.filter(definitions::keyword.eq(name)).load::<DefinitionEntry>(&*db)?;
+
+        rand::thread_rng().shuffle(&mut entries);
+
+        if entries.is_empty() {
+            Err(QueryNotFound)?;
+        }
+
+        CurrentMemory { idx: 0, key: keyword, def: entries }
+    };
+
+    if let Ok(ref c) = result {
+        let _ = msg.channel_id.say(c.definition());
+    }
+}
 
 pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<String, Error> {
     let cache = CACHE.read();

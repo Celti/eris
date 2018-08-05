@@ -133,7 +133,6 @@ pub struct CurrentMemory {
     pub def: Vec<DefinitionEntry>,
 }
 
-#[allow(dead_code)]
 impl CurrentMemory {
     pub fn content(&self) -> String {
         format!("{} {}", self.def[self.idx].keyword, self.def[self.idx].definition)

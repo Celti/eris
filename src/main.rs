@@ -174,6 +174,8 @@ fn main() -> Result<(), ExitFailure> {
 
         .help(help_commands::with_embeds)
 
+        .unrecognised_command(util::bareword_handler)
+
         .group("Admin", |g| { g
             .command("nick", |c| { c
                 .cmd(cmd::admin::change_nick)
