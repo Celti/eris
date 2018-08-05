@@ -217,10 +217,9 @@ mod parse {
             lazy_static! {
                 static ref RE: Regex = Regex::new(
                     r"(?x)
-                    \d+ d \d+ (?: [bw] \d+ )? | # Term::Dice
-                    [-+×x*/\\÷%^]             | # Term::<Op>
-                    -? \d+                      # Term::Num
-                "
+                    \d+ d (?:\d+)? (?: [bw] \d+ )? | # Term::Dice
+                    [-+×x*/\\÷%^]                  | # Term::<Op>
+                    -? \d+                           # Term::Num"
                 ).unwrap();
             }
 
@@ -373,6 +372,12 @@ mod parse {
                         n: d[0].parse()?,
                         s: d[1].parse()?,
                         t: Some(-d[2].parse()?),
+                    })
+                } else if d.len() == 1 {
+                    Ok(Term::Dice {
+                        n: d[0].parse()?,
+                        s: 6,
+                        t: None,
                     })
                 } else {
                     Ok(Term::Dice {
