@@ -5,12 +5,14 @@ use diesel::PgConnection;
 use r2d2_diesel::ConnectionManager;
 use serenity::model::id::{ChannelId, GuildId, MessageId, UserId};
 use serenity::prelude::Mutex;
+use serenity::builder::CreateMessage;
 use std::{collections::HashMap, sync::Arc};
 
 pub use serenity::prelude::Mentionable;
 pub use typemap::Key;
 
 pub type DB = diesel::pg::Pg;
+pub type DbConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
 
 pub struct DiceCache;
 impl Key for DiceCache {
@@ -115,6 +117,7 @@ pub struct DefinitionEntry {
     pub definition: String,
     pub submitter:  i64, // UserId
     pub timestamp:  DateTime<Utc>,
+    pub embed:      bool,
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Identifiable, Insertable, AsChangeset)]
@@ -124,6 +127,7 @@ pub struct NewDefinitionEntry<'a> {
     pub keyword:    &'a str,
     pub definition: &'a str,
     pub submitter:  i64, // UserId
+    pub embed:      bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -134,12 +138,22 @@ pub struct CurrentMemory {
 }
 
 impl CurrentMemory {
-    pub fn content(&self) -> String {
-        format!("{} {}", self.def[self.idx].keyword, self.def[self.idx].definition)
+    pub fn content(&self) -> CreateMessage {
+        if self.def[self.idx].embed {
+            CreateMessage::default().embed(|e| e.image(&self.def[self.idx].definition))
+        } else {
+            CreateMessage::default().content(
+                format!("{} {}", self.def[self.idx].keyword, self.def[self.idx].definition)
+            )
+        }
     }
 
-    pub fn definition(&self) -> String {
-        self.def[self.idx].definition.to_string()
+    pub fn definition(&self) -> CreateMessage {
+        if self.def[self.idx].embed {
+            CreateMessage::default().embed(|e| e.image(&self.def[self.idx].definition))
+        } else {
+            CreateMessage::default().content(&self.def[self.idx].definition)
+        }
     }
 
     pub fn details(&self) -> String {

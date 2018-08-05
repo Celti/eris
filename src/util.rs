@@ -26,7 +26,7 @@ pub fn bareword_handler(ctx: &mut Context, msg: &Message, name: &str) {
     };
 
     if let Ok(ref c) = result {
-        let _ = msg.channel_id.say(c.definition());
+        let _ = msg.channel_id.send_message(|_| c.definition());
     }
 }
 

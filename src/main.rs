@@ -241,6 +241,11 @@ fn main() -> Result<(), ExitFailure> {
                 .desc("Add a new keyword definition.")
                 .min_args(2)
             })
+            .command("embed", |c| { c
+                .cmd(cmd::memory::remember_embed)
+                .desc("Add a new keyword embed.")
+                .min_args(2)
+            })
             .command("forget", |c| { c
                 .cmd(cmd::memory::forget)
                 .desc("Forget a specific keyword definition.")
