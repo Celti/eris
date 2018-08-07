@@ -373,16 +373,10 @@ mod parse {
                         s: d[1].parse()?,
                         t: Some(-d[2].parse()?),
                     })
-                } else if d.len() == 1 {
-                    Ok(Term::Dice {
-                        n: d[0].parse()?,
-                        s: 6,
-                        t: None,
-                    })
                 } else {
                     Ok(Term::Dice {
                         n: d[0].parse()?,
-                        s: d[1].parse()?,
+                        s: d[1].parse().unwrap_or(6),
                         t: None,
                     })
                 }
