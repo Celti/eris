@@ -8,6 +8,7 @@
 #[macro_use] extern crate diesel;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
+#[macro_use] extern crate maplit;
 #[macro_use] extern crate serenity;
 
 mod cmd;
@@ -143,6 +144,7 @@ fn main() -> Result<(), ExitFailure> {
 
     let token = std::env::var("DISCORD_TOKEN")?;
     let mut client = Client::new(&token, Eris).map_err(SyncFailure::new)?;
+    let info = serenity::http::get_current_application_info().map_err(SyncFailure::new)?;
 
     client.with_framework(StandardFramework::new()
         .configure(|c| { c
@@ -157,7 +159,7 @@ fn main() -> Result<(), ExitFailure> {
             .ignore_webhooks(true)
             .on_mention(true)
             .prefix("$$")
-            // .owners(hashset!{info.owner.id})
+            .owners(hashset!{info.owner.id})
             // .delimiters(&[", or ", ", ", ",", " or ", " "])
             .case_insensitivity(true)
         })
