@@ -3,7 +3,7 @@ use crate::schema::*;
 use chrono::{DateTime, Utc};
 use diesel::PgConnection;
 use r2d2_diesel::ConnectionManager;
-use serenity::model::id::{ChannelId, GuildId, MessageId, UserId};
+use serenity::model::id::{ChannelId, MessageId, UserId};
 use serenity::prelude::Mutex;
 use serenity::builder::CreateMessage;
 use std::{collections::HashMap, sync::Arc};
@@ -21,7 +21,7 @@ impl Key for DiceCache {
 
 pub struct PrefixCache;
 impl Key for PrefixCache {
-    type Value = HashMap<GuildId, String>;
+    type Value = HashMap<i64, String>;
 }
 
 pub struct MemoryCache;
@@ -40,17 +40,17 @@ impl Key for ShardManager {
 }
 
 #[derive(Clone, Debug, Queryable)]
-pub struct GuildEntry {
-    pub guild_id: i64, // GuildId
-    pub prefix:   Option<String>
+pub struct PrefixEntry {
+    pub id:     i64,
+    pub prefix: Option<String>
 }
 
 #[derive(Clone, Debug, Insertable, AsChangeset)]
-#[table_name="guilds"]
-#[primary_key(guild_id)]
-pub struct NewGuildEntry<'a> {
-    pub guild_id: i64, // GuildId
-    pub prefix:   &'a str,
+#[table_name="prefixes"]
+#[primary_key(id)]
+pub struct NewPrefixEntry<'a> {
+    pub id:     i64,
+    pub prefix: &'a str,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd, Queryable)]

@@ -191,9 +191,8 @@ fn main() -> Result<(), ExitFailure> {
                 .owners_only(true)
             })
             .command("prefix", |c| { c
-                .cmd(cmd::admin::change_guild_prefix)
-                .desc("Change Eris's command prefix on the current guild.")
-                .guild_only(true)
+                .cmd(cmd::admin::change_prefix)
+                .desc("Change Eris's command prefix on the current guild or channel.")
                 .required_permissions(Permissions::ADMINISTRATOR)
             })
             .command("topic", |c| { c

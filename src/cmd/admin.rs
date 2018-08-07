@@ -2,7 +2,6 @@
 // use serenity::command;
 
 use crate::types::*;
-use serenity::model::id::GuildId;
 
 command!(change_nick(_ctx, msg, args) {
     let guild = msg.guild_id.unwrap();
@@ -14,28 +13,44 @@ command!(change_nick(_ctx, msg, args) {
     })?;
 });
 
-command!(change_guild_prefix(ctx, msg, args) {
-    use crate::schema::guilds::dsl::*;
+command!(change_prefix(ctx, msg, args) {
     use diesel::{prelude::*, pg::upsert::excluded};
+    use crate::schema::*;
 
     let mut map = ctx.data.lock();
+    let handle = map.get::<DatabaseHandle>().unwrap().clone();
+    let cache = map.get_mut::<PrefixCache>().unwrap();
 
-    let new = NewGuildEntry {
-        guild_id: msg.guild_id.unwrap().0 as i64,
-        prefix:   args.full(),
-    };
+    let new =
+        if msg.guild_id.is_none() || args.starts_with("channel") {
+            NewPrefixEntry {
+                id: -(msg.channel().unwrap().id().0 as i64),
+                prefix: args.trim_left_matches("channel").trim(),
+            }
+        } else {
+            NewPrefixEntry {
+                id: msg.guild_id.unwrap().0 as i64,
+                prefix: args.trim(),
+            }
+        };
 
-    let handle = map.get::<DatabaseHandle>().unwrap();
-    diesel::insert_into(guilds)
+    diesel::insert_into(prefixes::table)
         .values(&new)
-        .on_conflict(guild_id)
+        .on_conflict(prefixes::id)
         .do_update()
-        .set(prefix.eq(excluded(prefix)))
+        .set(prefixes::prefix.eq(excluded(prefixes::prefix)))
         .execute(&*handle.get()?)?;
 
-    let cache = map.get_mut::<PrefixCache>().unwrap();
-    if let Some(old) = cache.insert(GuildId(new.guild_id as u64), new.prefix.to_string()) {
-        msg.reply(&format!("Changed prefix from `{}` to `{}`.", old, new.prefix))?;
+    let old = cache.insert(new.id, new.prefix.to_string());
+
+    if let Some(old) = old.filter(|s| !s.is_empty()) {
+        if new.prefix.is_empty() {
+            msg.reply(&format!("Changed prefix from `{}` to default.", old))?;
+        } else {
+            msg.reply(&format!("Changed prefix from `{}` to `{}`.", old, new.prefix))?;
+        }
+    } else if new.prefix.is_empty() {
+        msg.reply("The prefix has not been changed.")?;
     } else {
         msg.reply(&format!("Changed prefix to `{}`.",  new.prefix))?;
     }

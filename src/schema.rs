@@ -9,13 +9,6 @@ table! {
 }
 
 table! {
-    guilds (guild_id) {
-        guild_id -> Int8,
-        prefix -> Nullable<Text>,
-    }
-}
-
-table! {
     keywords (keyword) {
         keyword -> Text,
         owner -> Nullable<Int8>,
@@ -26,10 +19,17 @@ table! {
     }
 }
 
+table! {
+    prefixes (id) {
+        id -> Int8,
+        prefix -> Nullable<Text>,
+    }
+}
+
 joinable!(definitions -> keywords (keyword));
 
 allow_tables_to_appear_in_same_query!(
     definitions,
-    guilds,
     keywords,
+    prefixes,
 );
