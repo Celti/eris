@@ -1,12 +1,11 @@
+use crate::types::*;
 use serenity::model::{channel::Message, id::{ChannelId, UserId}};
 use serenity::{client::Context, Error, CACHE};
 
 pub fn bareword_handler(ctx: &mut Context, msg: &Message, name: &str) {
     use crate::schema::*;
-    use crate::types::*;
-    use diesel::prelude::*;
+    use diesel::{prelude::*, result::Error::{NotFound as QueryNotFound}};
     use rand::Rng;
-    use diesel::result::Error::{NotFound as QueryNotFound};
 
     let map    = ctx.data.lock();
     let handle = map.get::<DatabaseHandle>().unwrap();
@@ -42,6 +41,17 @@ pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<Str
 
     // ...otherwise, just use their username.
     Ok(user_id.get()?.name)
+}
+
+pub fn dynamic_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
+    let map   = ctx.data.lock();
+    let cache = map.get::<PrefixCache>()?;
+
+    msg.channel().and_then(|c| Some(c.id()))
+        .and_then(|i| cache.get(&-(i.0 as i64)).filter(|s| !s.is_empty()))
+    .or_else(|| msg.guild_id
+        .and_then(|i| cache.get(&(i.0 as i64)).filter(|s| !s.is_empty())))
+    .cloned()
 }
 
 pub trait EpsilonEq<Rhs: Sized = Self>: Sized {

@@ -12,15 +12,15 @@
 #[macro_use] extern crate serenity;
 
 mod cmd;
-mod db;
 mod types;
 mod util;
 mod schema;
 
+use crate::types::*;
 use crate::util::cached_display_name;
 use exitfailure::ExitFailure;
 use failure::SyncFailure;
-use serenity::{model::prelude::*, prelude::*};
+use serenity::prelude::*;
 
 struct Eris;
 impl EventHandler for Eris {
@@ -154,7 +154,7 @@ fn main() -> Result<(), ExitFailure> {
             // .blocked_users(hashset!{UserId(1), UserId(2)})
             // .depth(5)
             // .disabled_commands(hashset!{"foo", "fnord"})
-            .dynamic_prefix(db::dynamic_prefix)
+            .dynamic_prefix(util::dynamic_prefix)
             .ignore_bots(true)
             .ignore_webhooks(true)
             .on_mention(true)
@@ -210,6 +210,22 @@ fn main() -> Result<(), ExitFailure> {
             })
         })
         .group("GURPS", |g| { g
+            .command("linear", |c| { c
+                .cmd(cmd::gurps::calc_linear)
+                .desc("Calculate the linear value for a given modifier (reverse SSR).")
+                .known_as("super")
+                .num_args(1)
+            })
+            .command("range", |c| { c
+                .cmd(cmd::gurps::calc_range)
+                .desc("Calculate range penalty for a given distance.")
+                .min_args(1)
+            })
+            .command("sm", |c| { c
+                .cmd(cmd::gurps::calc_sm)
+                .desc("Calculate size modifier for a given measurement.")
+                .min_args(1)
+            })
             .command("st", |c| { c
                 .cmd(cmd::gurps::calc_st)
                 .desc("Calculate Basic Lift and damage for a given ST.")
@@ -309,7 +325,7 @@ fn main() -> Result<(), ExitFailure> {
         })
     );
 
-    db::init(&mut client)?;
+    db_init(&mut client)?;
     client.start().map_err(SyncFailure::new)?;
 
     Ok(())

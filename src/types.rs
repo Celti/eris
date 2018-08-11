@@ -2,17 +2,18 @@ use crate::schema::*;
 
 use chrono::{DateTime, Utc};
 use diesel::PgConnection;
+use failure::Error;
 use r2d2_diesel::ConnectionManager;
-use serenity::model::id::{ChannelId, MessageId, UserId};
-use serenity::prelude::Mutex;
 use serenity::builder::CreateMessage;
 use std::{collections::HashMap, sync::Arc};
 
-pub use serenity::prelude::Mentionable;
+pub use serenity::model::prelude::*;
+pub use serenity::prelude::{Client, Context, Mentionable, Mutex};
 pub use typemap::Key;
 
 pub type DB = diesel::pg::Pg;
 pub type DbConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
+
 
 pub struct DiceCache;
 impl Key for DiceCache {
@@ -38,6 +39,7 @@ pub struct ShardManager;
 impl Key for ShardManager {
     type Value = Arc<Mutex<serenity::client::bridge::gateway::ShardManager>>;
 }
+
 
 #[derive(Clone, Debug, Queryable)]
 pub struct PrefixEntry {
@@ -181,4 +183,33 @@ impl CurrentMemory {
             self.idx -= 1;
         }
     }
+}
+
+pub fn db_init(client: &mut Client) -> Result<(), Error> {
+    let manager = ConnectionManager::<PgConnection>::new(std::env::var("DATABASE_URL")?);
+    let pool = r2d2::Pool::new(manager)?;
+    let db = pool.get()?;
+
+    let mut map = client.data.lock();
+    map.insert::<DiceCache>(<DiceCache as Key>::Value::default());
+    map.insert::<MemoryCache>(<MemoryCache as Key>::Value::default());
+    map.insert::<DatabaseHandle>(pool.clone());
+    map.insert::<ShardManager>(client.shard_manager.clone());
+
+    map.insert::<PrefixCache>({
+        use diesel::prelude::*;
+        use crate::schema::prefixes::dsl::*;
+
+        let mut cache = <PrefixCache as Key>::Value::default();
+
+        for row in prefixes.load::<PrefixEntry>(&*db)? {
+            if row.prefix.is_some() {
+                cache.insert(row.id, row.prefix.unwrap());
+            }
+        }
+
+        cache
+    });
+
+    Ok(())
 }
