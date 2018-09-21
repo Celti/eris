@@ -18,51 +18,59 @@ command!(calc(_ctx, msg, args) {
 });
 
 command!(get_history(_ctx, msg, args) {
+    // TODO: Make this use a temporary file to prevent memory exhaustion
+    // TODO: Add a deletion reaction
+
     use crate::util::cached_display_name;
     use serenity::http::AttachmentType;
     use std::io::Write;
 
-    let channel_id = args.single::<ChannelId>().or_else(|_| args.single::<u64>().map(ChannelId))?;
-    let from_id    = MessageId(args.single::<u64>().unwrap_or(0));
-    let until_id   = args.single::<u64>().map(MessageId).ok();
+    let channel_id = match args.current() {
+        None => msg.channel_id,
+        Some(s) => {
+            match serenity::utils::parse_channel(s) {
+                Some(id) => ChannelId(id),
+                None => s.parse::<u64>().map(ChannelId)?,
+            }
+        }
+    };
+
+    let from_id  = MessageId(args.single::<u64>().unwrap_or(0));
+    let until_id = MessageId(args.single::<u64>().unwrap_or(std::u64::MAX));
 
     let mut next_id  = from_id;
-    let mut log_file = tempfile::tempfile()?;
+    let mut log_file = Vec::new();
 
     loop {
         let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
-        let last_id = batch.last().unwrap().id;
+        let count   = batch.len();
+        let last_id = batch[0].id;
 
-        for message in batch.into_iter() {
+        for message in batch.into_iter().rev() {
             writeln!(
-                &mut log_file,
+                log_file,
                 "{} <{}> {}",
                 message.timestamp,
                 cached_display_name(message.channel_id, message.author.id)?,
-                message.content)?;
+                message.content
+            )?;
         }
 
-        if last_id == next_id {
+        log_file.flush()?;
+
+        if count < 100 || last_id == next_id || last_id >= until_id {
             break;
-        }
-
-        if let Some(until_id) = until_id {
-            if last_id > until_id {
-                break;
-            }
         }
 
         next_id = last_id;
     }
 
-    let channel_name =
-        if let Some(name) = channel_id.name() { name }
-        else { channel_id.to_string() };
 
-    let file_name = format!("{}-{}.txt", channel_name, msg.timestamp);
-    let log_file = AttachmentType::File((&log_file, &file_name));
+    let channel_name = channel_id.name().unwrap_or_else(|| channel_id.to_string());
+    let file_name    = format!("{}-{}.txt", channel_name, msg.timestamp);
+    let attachment = AttachmentType::Bytes((&log_file, &file_name));
 
-    msg.channel_id.send_files(vec![log_file], |m| m.content(""))?;
+    msg.channel_id.send_files(vec![attachment], |m| m.content(""))?;
 });
 
 command!(get_timestamp(_ctx, msg, args) {
