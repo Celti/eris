@@ -11,7 +11,7 @@ pub fn bareword_handler(ctx: &mut Context, msg: &Message, name: &str) {
     let handle = map.get::<DatabaseHandle>().unwrap();
     let db     = handle.get().unwrap();
 
-    let result: QueryResult<_> = do catch {
+    let result: QueryResult<_> = try {
         let keyword = keywords::table.find(name).filter(keywords::bare.eq(true)).first::<KeywordEntry>(&*db)?;
         let mut entries = definitions::table.filter(definitions::keyword.eq(name)).load::<DefinitionEntry>(&*db)?;
 
@@ -40,7 +40,7 @@ pub fn cached_display_name(channel_id: ChannelId, user_id: UserId) -> Result<Str
     }
 
     // ...otherwise, just use their username.
-    Ok(user_id.get()?.name)
+    Ok(user_id.to_user()?.name)
 }
 
 pub fn dynamic_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {

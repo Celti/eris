@@ -1,7 +1,6 @@
 #![allow(proc_macro_derive_resolution_fallback)] // diesel <= 1.3.2
-#![feature(rust_2018_preview)]
-#![feature(entry_or_default)]
 #![feature(nll)]
+#![feature(try_blocks)]
 //#![feature(use_extern_macros)]
 
 // FIXME use_extern_macros
@@ -25,11 +24,11 @@ use serenity::prelude::*;
 struct Eris;
 impl EventHandler for Eris {
     fn message(&self, _: Context, message: Message) {
-        match message.channel_id.get() {
+        match message.channel_id.to_channel() {
             Ok(Channel::Guild(channel)) => {
                 info!(target: "chat",
                     "[{} #{}] {} <{}:{}> {}",
-                    channel.read().guild_id.get().unwrap().name,
+                    channel.read().guild_id.to_partial_guild().unwrap().name,
                     channel.read().name(),
                     message.timestamp,
                     message.author.id,
@@ -87,7 +86,7 @@ impl EventHandler for Eris {
         }
 
         // TODO get name from persistent store
-        ctx.set_game_name("with fire.");
+        ctx.set_game("with fire.");
     }
 
     fn reaction_add(&self, ctx: Context, re: Reaction) {
@@ -107,7 +106,7 @@ impl EventHandler for Eris {
                 let cache = map.get_mut::<DiceCache>().unwrap();
 
                 #[cfg_attr(feature = "cargo-clippy", allow(unit_arg))]
-                let result: Result<(), CommandError> = do catch {
+                let result: Result<(), CommandError> = try {
                     if let Some(expr) = cache.remove(&re.message_id) {
                         re.message()?.delete_reactions()?;
 

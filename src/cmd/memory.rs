@@ -30,7 +30,7 @@ command!(recall(ctx, msg, args) {
     let handle = map.get::<DatabaseHandle>().unwrap();
     let db     = handle.get()?;
 
-    let result: QueryResult<_> = do catch {
+    let result: QueryResult<_> = try {
         let keyword = named_keyword_readable(&find, msg.author.id.0 as i64).first::<KeywordEntry>(&*db)?;
 
         let mut entries = definitions::table.filter(definitions::keyword.eq(&find)).load::<DefinitionEntry>(&*db)?;
@@ -140,7 +140,7 @@ command!(forget(ctx, msg, args) {
     let keyword    = args.single::<String>()?;
     let definition = args.multiple::<String>()?.join(" ");
 
-    let result: QueryResult<_> = do catch {
+    let result: QueryResult<_> = try {
         named_keyword_writable(&keyword, msg.author.id.0 as i64).first::<KeywordEntry>(&*db)?;
         diesel::delete(definitions::table.find((&keyword, &definition))).execute(&*db)?
     };
@@ -173,7 +173,7 @@ command!(set(ctx, msg, args) {
         _         => Err("invalid option type")?,
     };
 
-    let result: QueryResult<_> = do catch {
+    let result: QueryResult<_> = try {
         named_keyword_writable(&keyword, msg.author.id.0 as i64).first::<KeywordEntry>(&*db)?;
         diesel::update(keywords::table.find(&keyword)).set(&update).execute(&*db)?
     };

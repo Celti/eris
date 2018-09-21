@@ -59,7 +59,7 @@ command!(change_prefix(ctx, msg, args) {
 command!(change_topic(_ctx, msg, args) {
     let new = args.full();
 
-    if let Some(ref old) = msg.channel_id.get()?.guild().unwrap().read().topic {
+    if let Some(ref old) = msg.channel_id.to_channel()?.guild().unwrap().read().topic {
         msg.reply(&format!("Changed topic for {} from `{}` to `{}`.", msg.channel_id.mention(), old, new))?;
     } else {
         msg.reply(&format!("Set topic for {} to `{}`.", msg.channel_id.mention(), new))?;
@@ -69,7 +69,7 @@ command!(change_topic(_ctx, msg, args) {
 });
 
 command!(set_playing(ctx, msg, args) {
-    ctx.set_game_name(&args.full());
+    ctx.set_game(args.full());
     msg.reply("Game set.")?;
 });
 
