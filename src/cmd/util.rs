@@ -1,7 +1,7 @@
 // FIXME use_extern_macros
 // use serenity::command;
 
-use serenity::model::id::MessageId;
+use serenity::model::id::{ChannelId, MessageId};
 use std::process::Command;
 
 command!(calc(_ctx, msg, args) {
@@ -17,50 +17,57 @@ command!(calc(_ctx, msg, args) {
     msg.reply(&String::from_utf8_lossy(&output.stdout))?;
 });
 
-command!(get_history(_ctx, msg, _args) {
-    use std::fmt::Write;
-    use serenity::http::AttachmentType;
+command!(get_history(_ctx, msg, args) {
     use crate::util::cached_display_name;
+    use serenity::http::AttachmentType;
+    use std::io::Write;
 
-    let mut last = msg.id;
-    let mut messages = Vec::new();
-    let mut buf = String::new();
+    let channel_id = args.single::<ChannelId>().or_else(|_| args.single::<u64>().map(ChannelId))?;
+    let from_id    = MessageId(args.single::<u64>().unwrap_or(0));
+    let until_id   = args.single::<u64>().map(MessageId).ok();
+
+    let mut next_id  = from_id;
+    let mut log_file = tempfile::tempfile()?;
 
     loop {
-        let mut batch = msg.channel_id.messages(|m| m.before(last).limit(100))?;
+        let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
+        let last_id = batch.last().unwrap().id;
 
-        messages.append(&mut batch);
+        for message in batch.into_iter() {
+            writeln!(
+                &mut log_file,
+                "{} <{}> {}",
+                message.timestamp,
+                cached_display_name(message.channel_id, message.author.id)?,
+                message.content)?;
+        }
 
-        let next_id = messages[messages.len() - 1].id;
-
-        if next_id == last {
+        if last_id == next_id {
             break;
         }
 
-        last = next_id;
-    }
+        if let Some(until_id) = until_id {
+            if last_id > until_id {
+                break;
+            }
+        }
 
-    for message in messages.into_iter().rev() {
-        writeln!(
-            &mut buf,
-            "{} <{}> {}",
-            message.timestamp,
-            cached_display_name(message.channel_id, message.author.id)?,
-            message.content)?;
+        next_id = last_id;
     }
 
     let channel_name =
-        if let Some(name) = msg.channel_id.name() { name }
-        else { msg.channel_id.to_string() };
+        if let Some(name) = channel_id.name() { name }
+        else { channel_id.to_string() };
 
     let file_name = format!("{}-{}.txt", channel_name, msg.timestamp);
-    let log_file = AttachmentType::Bytes((buf.as_bytes(), &file_name));
+    let log_file = AttachmentType::File((&log_file, &file_name));
 
     msg.channel_id.send_files(vec![log_file], |m| m.content(""))?;
 });
 
 command!(get_timestamp(_ctx, msg, args) {
-    let message = MessageId(args.single::<u64>()?);
-    let stamp = message.created_at();
-    msg.reply(&format!("Snowflake {} was created at {} UTC.", message, stamp))?;
+    // All snowflakes are the same for timestamps. ChannelId parses as desired.
+    let id = args.single::<ChannelId>()?;
+    let stamp = id.created_at();
+    msg.reply(&format!("Snowflake {} was created at {} UTC.", id, stamp))?;
 });
