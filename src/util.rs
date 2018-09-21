@@ -1,12 +1,69 @@
+use crate::schema::*;
 use crate::types::*;
+use diesel::{prelude::*, pg::upsert::*, result::Error::{NotFound as QueryNotFound}};
+use rand::Rng;
 use serenity::model::{channel::Message, id::{ChannelId, UserId}};
 use serenity::{client::Context, Error, CACHE};
 
-pub fn bareword_handler(ctx: &mut Context, msg: &Message, name: &str) {
-    use crate::schema::*;
-    use diesel::{prelude::*, result::Error::{NotFound as QueryNotFound}};
-    use rand::Rng;
+pub fn last_seen_id(ctx: &mut Context, msg: &Message) {
+    let map    = ctx.data.lock();
+    let handle = map.get::<DatabaseHandle>().unwrap();
+    let db     = handle.get().unwrap();
 
+    let mut seen_ids: Vec<SeenId> = Vec::new();
+
+    let channel_name = match msg.channel_id.to_channel() {
+        Ok(Channel::Guild(channel)) => channel.read().name().to_string(),
+        Ok(Channel::Group(channel)) => channel.read().name().into_owned(),
+        Ok(Channel::Private(channel)) => channel.read().name(),
+        Ok(Channel::Category(channel)) => channel.read().name().to_string(),
+        Err(_) => String::from("Error"),
+    };
+
+    seen_ids.push(SeenId {
+        id:   *msg.author.id.as_u64() as i64,
+        at:   msg.timestamp,
+        kind: "User".to_string(),
+        name: msg.author.name.clone(),
+    });
+
+    seen_ids.push(SeenId {
+        id:   *msg.channel_id.as_u64() as i64,
+        at:   msg.timestamp,
+        kind: "Channel".to_string(),
+        name: channel_name,
+    });
+
+    if let Some(guild) = msg.guild_id.and_then(|g| g.to_partial_guild().ok()) {
+        seen_ids.push(SeenId {
+            id:   *guild.id.as_u64() as i64,
+            at:   msg.timestamp,
+            kind: "Guild".to_string(),
+            name: guild.name,
+        });
+    }
+
+    if let Some(webhook) = msg.webhook_id.and_then(|g| g.to_webhook().ok()) {
+        seen_ids.push(SeenId {
+            id:   *webhook.id.as_u64() as i64,
+            at:   msg.timestamp,
+            kind: "Webhook".to_string(),
+            name: webhook.name.unwrap_or_default(),
+        });
+    }
+
+    if let Err(error) = diesel::insert_into(seen::table)
+        .values(&seen_ids)
+        .on_conflict(seen::id)
+        .do_update()
+        .set(seen::id.eq(excluded(seen::id)))
+        .execute(&*db)
+    {
+        log::error!("{}", error);
+    }
+}
+
+pub fn bareword_handler(ctx: &mut Context, msg: &Message, name: &str) {
     let map    = ctx.data.lock();
     let handle = map.get::<DatabaseHandle>().unwrap();
     let db     = handle.get().unwrap();

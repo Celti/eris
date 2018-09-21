@@ -26,10 +26,20 @@ table! {
     }
 }
 
+table! {
+    seen (id) {
+        id -> Int8,
+        at -> Timestamptz,
+        kind -> Text,
+        name -> Text,
+    }
+}
+
 joinable!(definitions -> keywords (keyword));
 
 allow_tables_to_appear_in_same_query!(
     definitions,
     keywords,
     prefixes,
+    seen,
 );

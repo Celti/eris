@@ -23,7 +23,9 @@ use serenity::prelude::*;
 
 struct Eris;
 impl EventHandler for Eris {
-    fn message(&self, _: Context, message: Message) {
+    fn message(&self, mut context: Context, message: Message) {
+        util::last_seen_id(&mut context, &message);
+
         match message.channel_id.to_channel() {
             Ok(Channel::Guild(channel)) => {
                 info!(target: "chat",

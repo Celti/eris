@@ -1,6 +1,6 @@
 use crate::schema::*;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, FixedOffset, Utc};
 use diesel::PgConnection;
 use failure::Error;
 use r2d2_diesel::ConnectionManager;
@@ -111,6 +111,15 @@ impl NewKeywordEntry {
             self.owner = Some(None);
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, Identifiable, Insertable, AsChangeset)]
+#[table_name="seen"]
+pub struct SeenId {
+    pub id: i64, // Snowflake
+    pub at: DateTime<FixedOffset>,
+    pub kind: String,
+    pub name: String,
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Queryable)]
