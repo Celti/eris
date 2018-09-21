@@ -5,6 +5,65 @@ use rand::Rng;
 use serenity::model::{channel::Message, id::{ChannelId, UserId}};
 use serenity::{client::Context, Error, CACHE};
 
+pub fn log_message(msg: &Message) {
+    match msg.channel_id.to_channel() {
+        Ok(Channel::Guild(channel)) => {
+            log::info!(target: "chat",
+                "[{} #{}] {} <{}:{}> {}",
+                channel.read().guild_id.to_partial_guild().unwrap().name,
+                channel.read().name(),
+                msg.timestamp,
+                msg.author.id,
+                cached_display_name(msg.channel_id, msg.author.id).unwrap(),
+                msg.content
+            );
+        }
+
+        Ok(Channel::Group(channel)) => {
+            log::info!(target: "chat",
+                "[{}] {} <{}:{}> {}",
+                channel.read().name(),
+                msg.timestamp,
+                msg.author.id,
+                msg.author.name,
+                msg.content
+            );
+        }
+
+        Ok(Channel::Private(channel)) => {
+            log::info!(target: "chat",
+                "[{}] {} <{}:{}> {}",
+                channel.read().name(),
+                msg.timestamp,
+                msg.author.id,
+                msg.author.name,
+                msg.content
+            );
+        }
+
+        Ok(Channel::Category(channel)) => {
+            log::info!(target: "chat",
+                "[{}] {} <{}:{}> {}",
+                channel.read().name(),
+                msg.timestamp,
+                msg.author.id,
+                msg.author.name,
+                msg.content
+            );
+        }
+
+        Err(_) => {
+            log::warn!(target: "chat",
+                "[Unknown Channel] {} <{}:{}> {}",
+                msg.timestamp,
+                msg.author.id,
+                msg.author.name,
+                msg.content
+            );
+        }
+    }
+}
+
 pub fn last_seen_id(ctx: &mut Context, msg: &Message) {
     let map    = ctx.data.lock();
     let handle = map.get::<DatabaseHandle>().unwrap();

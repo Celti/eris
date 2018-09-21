@@ -16,7 +16,6 @@ mod util;
 mod schema;
 
 use crate::types::*;
-use crate::util::cached_display_name;
 use exitfailure::ExitFailure;
 use failure::SyncFailure;
 use serenity::prelude::*;
@@ -25,59 +24,7 @@ struct Eris;
 impl EventHandler for Eris {
     fn message(&self, mut context: Context, message: Message) {
         util::last_seen_id(&mut context, &message);
-
-        match message.channel_id.to_channel() {
-            Ok(Channel::Guild(channel)) => {
-                info!(target: "chat",
-                    "[{} #{}] {} <{}:{}> {}",
-                    channel.read().guild_id.to_partial_guild().unwrap().name,
-                    channel.read().name(),
-                    message.timestamp,
-                    message.author.id,
-                    cached_display_name(message.channel_id, message.author.id).unwrap(),
-                    message.content
-                );
-            }
-            Ok(Channel::Group(channel)) => {
-                info!(target: "chat",
-                    "[{}] {} <{}:{}> {}",
-                    channel.read().name(),
-                    message.timestamp,
-                    message.author.id,
-                    message.author.name,
-                    message.content
-                );
-            }
-            Ok(Channel::Private(channel)) => {
-                info!(target: "chat",
-                    "[{}] {} <{}:{}> {}",
-                    channel.read().name(),
-                    message.timestamp,
-                    message.author.id,
-                    message.author.name,
-                    message.content
-                );
-            }
-            Ok(Channel::Category(channel)) => {
-                info!(target: "chat",
-                    "[{}] {} <{}:{}> {}",
-                    channel.read().name(),
-                    message.timestamp,
-                    message.author.id,
-                    message.author.name,
-                    message.content
-                );
-            }
-            Err(_) => {
-                warn!(target: "chat",
-                    "[Unknown Channel] {} <{}:{}> {}",
-                    message.timestamp,
-                    message.author.id,
-                    message.author.name,
-                    message.content
-                );
-            }
-        }
+        util::log_message(&message);
     }
 
     fn ready(&self, ctx: Context, ready: Ready) {
