@@ -23,7 +23,7 @@ command!(dice(ctx, msg, args) {
     cache.insert(sent.id, expr);
 });
 
-crate fn process_args(mut args: Args) -> Result<String, CommandError> {
+pub fn process_args(mut args: Args) -> Result<String, CommandError> {
     let res = if let Ok(r) = args.single::<Roll>() {
         r
     } else {
@@ -131,7 +131,7 @@ mod parse {
     }
 
     #[derive(Clone, Debug)]
-    crate struct Roll {
+    pub struct Roll {
         pub terms: Vec<(Term, Vec<isize>)>,
         pub total: isize,
     }
@@ -278,7 +278,7 @@ mod parse {
         }
     }
 
-    crate struct RollIterator {
+    pub struct RollIterator {
         roll: Roll,
     }
 
@@ -297,7 +297,7 @@ mod parse {
     }
 
     #[derive(Clone, Copy, Debug)]
-    crate enum Term {
+    pub enum Term {
         Dice {
             n: usize,
             s: usize,

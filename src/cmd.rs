@@ -1,7 +1,7 @@
-crate mod admin;
-crate mod gurps;
-crate mod memory;
-crate mod misc;
-crate mod random;
-crate mod roll;
-crate mod util;
+pub mod admin;
+pub mod gurps;
+pub mod memory;
+pub mod misc;
+pub mod random;
+pub mod roll;
+pub mod util;

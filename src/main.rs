@@ -1,5 +1,6 @@
 #![allow(proc_macro_derive_resolution_fallback)] // diesel <= 1.3.2
 #![feature(nll)]
+#![feature(tool_lints)]
 #![feature(try_blocks)]
 //#![feature(use_extern_macros)]
 
@@ -54,7 +55,7 @@ impl EventHandler for Eris {
                 let mut map = ctx.data.lock();
                 let cache = map.get_mut::<DiceCache>().unwrap();
 
-                #[cfg_attr(feature = "cargo-clippy", allow(unit_arg))]
+                #[allow(clippy::unit_arg)]
                 let result: Result<(), CommandError> = try {
                     if let Some(expr) = cache.remove(&re.message_id) {
                         re.message()?.delete_reactions()?;
@@ -267,7 +268,7 @@ fn main() -> Result<(), ExitFailure> {
                 .cmd(cmd::misc::fnord)
             })
             .command("ddate", |c| { c
-                .cmd(cmd::misc::ddate)
+                .cmd(cmd::misc::discdate)
                 .desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
             })
         })

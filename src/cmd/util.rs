@@ -25,21 +25,27 @@ command!(get_history(_ctx, msg, args) {
     use serenity::http::AttachmentType;
     use std::io::Write;
 
-    let channel_id = match args.current() {
-        None => msg.channel_id,
-        Some(s) => {
-            match serenity::utils::parse_channel(s) {
+    let channel_id = match args.single::<String>() {
+        Err(_) => msg.channel_id,
+        Ok(s) => {
+            match serenity::utils::parse_channel(&s) {
                 Some(id) => ChannelId(id),
                 None => s.parse::<u64>().map(ChannelId)?,
             }
         }
     };
 
-    let from_id  = MessageId(args.single::<u64>().unwrap_or(0));
-    let until_id = MessageId(args.single::<u64>().unwrap_or(std::u64::MAX));
+    let mut next_id = match args.single::<String>() {
+        Ok(s)  => s.trim().parse::<u64>().map(MessageId)?,
+        Err(_) => MessageId(0),
+    };
 
-    let mut next_id  = from_id;
-    let mut log_file = Vec::new();
+    let limit_id = match args.single::<String>() {
+        Ok(s)  => s.trim().parse::<u64>().map(MessageId)?,
+        Err(_) => MessageId(std::u64::MAX),
+    };
+
+    let mut buf = Vec::new();
 
     loop {
         let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
@@ -47,18 +53,12 @@ command!(get_history(_ctx, msg, args) {
         let last_id = batch[0].id;
 
         for message in batch.into_iter().rev() {
-            writeln!(
-                log_file,
-                "{} <{}> {}",
-                message.timestamp,
-                cached_display_name(message.channel_id, message.author.id)?,
-                message.content
-            )?;
+            // TODO improve formatting; e.g., embeds, attachments, emoji. HTML?
+            let display_name = cached_display_name(message.channel_id, message.author.id)?;
+            writeln!(&mut buf, "{} <{}> {}", message.timestamp, display_name, message.content)?;
         }
 
-        log_file.flush()?;
-
-        if count < 100 || last_id == next_id || last_id >= until_id {
+        if count < 100 || next_id == last_id || last_id >= limit_id {
             break;
         }
 
@@ -66,9 +66,9 @@ command!(get_history(_ctx, msg, args) {
     }
 
 
-    let channel_name = channel_id.name().unwrap_or_else(|| channel_id.to_string());
-    let file_name    = format!("{}-{}.txt", channel_name, msg.timestamp);
-    let attachment = AttachmentType::Bytes((&log_file, &file_name));
+    let channel    = channel_id.name().unwrap_or_else(|| channel_id.to_string());
+    let filename   = format!("{}-{}.txt", channel, msg.timestamp);
+    let attachment = AttachmentType::Bytes((&buf, &filename));
 
     msg.channel_id.send_files(vec![attachment], |m| m.content(""))?;
 });

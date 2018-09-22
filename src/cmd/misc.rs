@@ -5,7 +5,7 @@ command!(fnord(_ctx, msg) {
     msg.channel_id.say(&fnorder::fnorder())?;
 });
 
-command!(ddate(_ctx, msg) {
+command!(discdate(_ctx, msg) {
     use chrono::Utc;
     use ddate::DiscordianDate;
 

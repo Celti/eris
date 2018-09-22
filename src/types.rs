@@ -14,7 +14,6 @@ pub use typemap::Key;
 pub type DB = diesel::pg::Pg;
 pub type DbConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
 
-
 pub struct DiceCache;
 impl Key for DiceCache {
     type Value = HashMap<MessageId, String>;
@@ -65,7 +64,7 @@ pub struct KeywordEntry {
     pub bare:    bool,
 }
 
-#[cfg_attr(feature = "cargo-clippy", allow(option_option))]
+#[allow(clippy::option_option)]
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd, AsChangeset)]
 #[table_name="keywords"]
 #[primary_key(keyword)]
