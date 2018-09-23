@@ -1,7 +1,7 @@
 use crate::schema::*;
 
 use chrono::{DateTime, FixedOffset, Utc};
-use diesel::PgConnection;
+use diesel::{PgConnection, AsChangeset, Identifiable, Insertable, Queryable};
 use failure::Error;
 use r2d2_diesel::ConnectionManager;
 use serenity::builder::CreateMessage;
@@ -11,7 +11,7 @@ pub use serenity::model::prelude::*;
 pub use serenity::prelude::{Client, Context, Mentionable, Mutex};
 pub use typemap::Key;
 
-pub type DB = diesel::pg::Pg;
+pub type DbBackend = diesel::pg::Pg;
 pub type DbConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
 
 pub struct DiceCache;
@@ -39,6 +39,14 @@ impl Key for ShardManager {
     type Value = Arc<Mutex<serenity::client::bridge::gateway::ShardManager>>;
 }
 
+#[derive(Clone, Debug, PartialEq, PartialOrd, Identifiable, Insertable, AsChangeset)]
+#[table_name="seen"]
+pub struct SeenId {
+    pub id: i64, // Snowflake
+    pub at: DateTime<FixedOffset>,
+    pub kind: String,
+    pub name: String,
+}
 
 #[derive(Clone, Debug, Queryable)]
 pub struct PrefixEntry {
@@ -110,15 +118,6 @@ impl NewKeywordEntry {
             self.owner = Some(None);
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq, PartialOrd, Identifiable, Insertable, AsChangeset)]
-#[table_name="seen"]
-pub struct SeenId {
-    pub id: i64, // Snowflake
-    pub at: DateTime<FixedOffset>,
-    pub kind: String,
-    pub name: String,
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, Queryable)]

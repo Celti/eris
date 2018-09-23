@@ -1,11 +1,9 @@
-// FIXME use_extern_macros
-// use lazy_static::{__lazy_static_create, __lazy_static_internal, lazy_static};
-// use serenity::command;
-
 use crate::types::*;
-use self::parse::Roll;
+use lazy_static::lazy_static;
 use regex::Regex;
-use serenity::{framework::standard::{Args, CommandError}, prelude::Mentionable};
+use self::parse::Roll;
+use serenity::command;
+use serenity::framework::standard::{Args, CommandError};
 
 // TODO versus modes for games besides GURPS
 
@@ -15,7 +13,7 @@ command!(dice(ctx, msg, args) {
     let roll = process_args(args)?;
     let sent = msg.channel_id.send_message(|m| { m
         .content(format!("**{} rolled:**{}", name, roll))
-        .reactions(vec!['🎲'])
+        .reactions(Some('🎲'))
     })?;
 
     let mut map = ctx.data.lock();
@@ -115,6 +113,7 @@ pub fn process_args(mut args: Args) -> Result<String, CommandError> {
 }
 
 mod parse {
+    use lazy_static::lazy_static;
     use rand::distributions::{Distribution, Uniform};
     use regex::Regex;
     use std::{error::Error as StdError, num::ParseIntError};

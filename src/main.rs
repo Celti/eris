@@ -1,24 +1,19 @@
-#![allow(proc_macro_derive_resolution_fallback)] // diesel <= 1.3.2
 #![feature(nll)]
 #![feature(tool_lints)]
 #![feature(try_blocks)]
-//#![feature(use_extern_macros)]
 
-// FIXME use_extern_macros
-#[macro_use] extern crate diesel;
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate log;
-#[macro_use] extern crate maplit;
-#[macro_use] extern crate serenity;
+#![allow(proc_macro_derive_resolution_fallback)]    // FIXME diesel 1.4
+#[macro_use] extern crate diesel;                   // FIXME diesel 1.4
 
 mod cmd;
+mod schema;
 mod types;
 mod util;
-mod schema;
 
 use crate::types::*;
 use exitfailure::ExitFailure;
 use failure::SyncFailure;
+use maplit::hashset;
 use serenity::prelude::*;
 
 struct Eris;
@@ -30,9 +25,9 @@ impl EventHandler for Eris {
 
     fn ready(&self, ctx: Context, ready: Ready) {
         if let Some(s) = ready.shard {
-            info!("Logged in as '{}' on {}/{}", ready.user.name, s[0], s[1]);
+            log::info!("Logged in as '{}' on {}/{}", ready.user.name, s[0], s[1]);
         } else {
-            info!("Logged in as '{}'", ready.user.name);
+            log::info!("Logged in as '{}'", ready.user.name);
         }
 
         // TODO get name from persistent store
@@ -43,8 +38,10 @@ impl EventHandler for Eris {
         use crate::types::DiceCache;
         use serenity::framework::standard::{Args, CommandError};
 
+        let bot_id = serenity::utils::with_cache(|cache| cache.user.id);
+
         // Don't respond to our own reactions.
-        if serenity::utils::with_cache(|cache| cache.user.id == re.user_id) {
+        if bot_id == re.user_id {
             return;
         }
 
@@ -55,7 +52,6 @@ impl EventHandler for Eris {
                 let mut map = ctx.data.lock();
                 let cache = map.get_mut::<DiceCache>().unwrap();
 
-                #[allow(clippy::unit_arg)]
                 let result: Result<(), CommandError> = try {
                     if let Some(expr) = cache.remove(&re.message_id) {
                         re.message()?.delete_reactions()?;
@@ -70,16 +66,32 @@ impl EventHandler for Eris {
 
                         cache.insert(sent.id, expr);
                     } else {
-                        return info!("Die roll is not in message cache.");
-                    }
+                        log::info!("Die roll is not in message cache.");
+                    };
                 };
 
                 if let Err(err) = result {
-                   return error!("error repeating dice roll: {:?}", err);
+                   log::error!("error repeating dice roll: {:?}", err);
                 }
             }
+
+            // Delete message.
+            ReactionType::Unicode(ref x) if x == "❌" => {
+                let result: Result<(), CommandError> = try {
+                    let msg = re.message()?;
+
+                    if msg.author.id == bot_id {
+                        msg.delete()?;
+                    };
+                };
+
+                if let Err(err) = result {
+                   log::error!("error deleting message: {:?}", err);
+                }
+            }
+
             // An unconfigured reaction type.
-            r => debug!("Unknown ReactionType: {:?}", r),
+            r => log::debug!("Unknown ReactionType: {:?}", r),
         }
     }
 }
@@ -87,9 +99,9 @@ impl EventHandler for Eris {
 fn main() -> Result<(), ExitFailure> {
     dotenv::dotenv().ok();
     log_panics::init();
-    env_logger::init();
+    pretty_env_logger::init();
 
-    use serenity::framework::standard::{help_commands, StandardFramework};
+    use serenity::framework::standard::{help_commands, DispatchError, StandardFramework};
 
     let token = std::env::var("DISCORD_TOKEN")?;
     let mut client = Client::new(&token, Eris).map_err(SyncFailure::new)?;
@@ -101,26 +113,47 @@ fn main() -> Result<(), ExitFailure> {
             .allow_whitespace(false)
             // .blocked_guilds(hashset!{GuildId(1), GuildId(2)})
             // .blocked_users(hashset!{UserId(1), UserId(2)})
+            .case_insensitivity(true)
+            // .delimiters(&[", or ", ", ", ",", " or ", " "])
             // .depth(5)
             // .disabled_commands(hashset!{"foo", "fnord"})
             .dynamic_prefix(util::dynamic_prefix)
             .ignore_bots(true)
             .ignore_webhooks(true)
+            .no_dm_prefix(true)
             .on_mention(true)
-            .prefix("$$")
             .owners(hashset!{info.owner.id})
-            // .delimiters(&[", or ", ", ", ",", " or ", " "])
-            .case_insensitivity(true)
         })
 
         .after(|_ctx, _msg, cmd, res| match res {
-            Ok(()) => info!("Successfully processed command '{}'", cmd),
-            Err(e) => error!("Error processing command '{}': {:?}", cmd, e),
+            Ok(()) => log::info!("Successfully processed command '{}'", cmd),
+            Err(e) => log::error!("Error processing command '{}': {:?}", cmd, e),
         })
 
-        .on_dispatch_error(|_ctx, msg, err| {
-            // TODO match on DispatchError enum and customise responses.
-            let _ = msg.channel_id.say(&format!("Could not execute command: {:?}", err));
+        .on_dispatch_error(|_ctx, msg, err| match err {
+            DispatchError::OnlyForDM => {
+                msg.reply("This command is only available in DMs.").ok();
+            }
+
+            DispatchError::OnlyForGuilds => {
+                msg.reply("This command is only available in servers.").ok();
+            }
+
+            DispatchError::RateLimited(t) => {
+                msg.reply(&format!("Ratelimited; please wait at least {} seconds.", t)).ok();
+            }
+
+            DispatchError::NotEnoughArguments { min: m, given: n } => {
+                msg.reply(&format!("This command takes at least {} arguments (gave {}).", m, n)).ok();
+            }
+
+            DispatchError::TooManyArguments { max: m, given: n } => {
+                msg.reply(&format!("This command takes at most {} arguments (gave {}).", m, n)).ok();
+            }
+
+            _ => {
+                log::info!("Command not executed: {:?}", err);
+            }
         })
 
         .help(help_commands::with_embeds)
@@ -253,12 +286,14 @@ fn main() -> Result<(), ExitFailure> {
             })
             .command("logs", |c| { c
                 .cmd(cmd::util::get_history)
-                .desc("Generate a log file for this channel to the current timestamp.")
+                .desc("Generate a log file for the specified channel. Defaults to the entirety of the current channel.")
+                .max_args(3)
                 .known_as("log")
+                .usage("[channel [from_id [to_id]]]")
             })
             .command("when", |c| { c
                 .cmd(cmd::util::get_timestamp)
-                .desc("Get the timestamp of the specified Discord snowflake (message ID).")
+                .desc("Get the timestamp of the specified Discord snowflake (object ID).")
                 .batch_known_as(&["time", "timestamp", "date", "datestamp"])
             })
         })
@@ -268,7 +303,7 @@ fn main() -> Result<(), ExitFailure> {
                 .cmd(cmd::misc::fnord)
             })
             .command("ddate", |c| { c
-                .cmd(cmd::misc::discdate)
+                .cmd(cmd::misc::get_ddate)
                 .desc("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")
             })
         })

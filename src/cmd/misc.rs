@@ -1,11 +1,10 @@
-// FIXME use_extern_macros
-// use serenity::command;
+use serenity::command;
 
 command!(fnord(_ctx, msg) {
     msg.channel_id.say(&fnorder::fnorder())?;
 });
 
-command!(discdate(_ctx, msg) {
+command!(get_ddate(_ctx, msg) {
     use chrono::Utc;
     use ddate::DiscordianDate;
 

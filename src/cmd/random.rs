@@ -1,7 +1,5 @@
-// FIXME use_extern_macros
-// use serenity::command;
-
 use rand::Rng;
+use serenity::command;
 
 command!(flip(_ctx, msg) {
     let mut rng = rand::thread_rng();

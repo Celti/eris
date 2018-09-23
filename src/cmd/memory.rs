@@ -1,23 +1,21 @@
-// FIXME use_extern_macros
-// use serenity::command;
-
 use crate::schema::*;
 use crate::types::*;
 use diesel::prelude::*;
-use rand::Rng;
-use diesel::result::Error::{DatabaseError as QueryViolation, NotFound as QueryNotFound};
 use diesel::result::DatabaseErrorKind::UniqueViolation as Unique;
+use diesel::result::Error::{DatabaseError as QueryViolation, NotFound as QueryNotFound};
+use rand::Rng;
+use serenity::command;
 
 // match <kw> <part..> - load definitions matching <part> into cache
 // find <partial> - list keywords matching <partial>
 
-fn named_keyword_readable(name: &str, user: i64) -> keywords::BoxedQuery<DB> {
+fn named_keyword_readable(name: &str, user: i64) -> keywords::BoxedQuery<DbBackend> {
     keywords::table.find(name)
         .filter(keywords::owner.eq(user).or(keywords::hidden.eq(false)))
         .into_boxed()
 }
 
-fn named_keyword_writable(name: &str, user: i64) -> keywords::BoxedQuery<DB> {
+fn named_keyword_writable(name: &str, user: i64) -> keywords::BoxedQuery<DbBackend> {
     keywords::table.find(name)
         .filter(keywords::owner.eq(user).or(keywords::hidden.eq(false).and(keywords::protect.eq(false))))
         .into_boxed()

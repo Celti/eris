@@ -1,7 +1,5 @@
-// FIXME use_extern_macros
-// use serenity::command;
-
 use crate::types::*;
+use serenity::command;
 
 command!(change_nick(_ctx, msg, args) {
     let guild = msg.guild_id.unwrap();

@@ -1,7 +1,5 @@
-// FIXME use_extern_macros
-// use serenity::command;
-
-use serenity::model::id::{ChannelId, MessageId};
+use crate::types::*;
+use serenity::command;
 use std::process::Command;
 
 command!(calc(_ctx, msg, args) {
@@ -18,12 +16,8 @@ command!(calc(_ctx, msg, args) {
 });
 
 command!(get_history(_ctx, msg, args) {
-    // TODO: Make this use a temporary file to prevent memory exhaustion
-    // TODO: Add a deletion reaction
-
     use crate::util::cached_display_name;
-    use serenity::http::AttachmentType;
-    use std::io::Write;
+    use std::io::{Seek, SeekFrom, Write};
 
     let channel_id = match args.single::<String>() {
         Err(_) => msg.channel_id,
@@ -35,17 +29,18 @@ command!(get_history(_ctx, msg, args) {
         }
     };
 
-    let mut next_id = match args.single::<String>() {
+    let from_id = match args.single::<String>() {
         Ok(s)  => s.trim().parse::<u64>().map(MessageId)?,
         Err(_) => MessageId(0),
     };
 
-    let limit_id = match args.single::<String>() {
+    let until_id = match args.single::<String>() {
         Ok(s)  => s.trim().parse::<u64>().map(MessageId)?,
         Err(_) => MessageId(std::u64::MAX),
     };
 
-    let mut buf = Vec::new();
+    let mut buf = tempfile::tempfile()?;
+    let mut next_id = from_id;
 
     loop {
         let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
@@ -54,23 +49,28 @@ command!(get_history(_ctx, msg, args) {
 
         for message in batch.into_iter().rev() {
             // TODO improve formatting; e.g., embeds, attachments, emoji. HTML?
-            let display_name = cached_display_name(message.channel_id, message.author.id)?;
+            let display_name = cached_display_name(message.guild_id, message.author.id)?;
             writeln!(&mut buf, "{} <{}> {}", message.timestamp, display_name, message.content)?;
         }
 
-        if count < 100 || next_id == last_id || last_id >= limit_id {
+        if count < 100 || next_id == last_id || last_id >= until_id {
             break;
         }
 
         next_id = last_id;
     }
 
+    buf.seek(SeekFrom::Start(0))?;
 
-    let channel    = channel_id.name().unwrap_or_else(|| channel_id.to_string());
-    let filename   = format!("{}-{}.txt", channel, msg.timestamp);
-    let attachment = AttachmentType::Bytes((&buf, &filename));
+    let channel  = channel_id.name().unwrap_or_else(|| channel_id.to_string());
+    let filename = format!("{}-{}.txt", channel, msg.timestamp);
 
-    msg.channel_id.send_files(vec![attachment], |m| m.content(""))?;
+    let content = format!("Logs for {} from {} to {}.",
+                          channel_id.mention(),
+                          from_id.created_at(),
+                          until_id.created_at());
+
+    msg.channel_id.send_files(Some((&buf, &*filename)), |m| m.reactions(Some('❌')).content(content))?;
 });
 
 command!(get_timestamp(_ctx, msg, args) {
