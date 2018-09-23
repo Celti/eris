@@ -16,7 +16,8 @@ command!(calc(_ctx, msg, args) {
 });
 
 command!(get_history(_ctx, msg, args) {
-    use crate::util::cached_display_name;
+    use crate::util::MessageExt;
+    use chrono::{Date, Offset, Utc};
     use std::io::{Seek, SeekFrom, Write};
 
     let channel_id = match args.single::<String>() {
@@ -30,7 +31,7 @@ command!(get_history(_ctx, msg, args) {
     };
 
     let from_id = match args.single::<String>() {
-        Ok(s)  => s.trim().parse::<u64>().map(MessageId)?,
+        Ok(s)  => s.trim().parse::<u64>().map(|i| MessageId(i - 1))?,
         Err(_) => MessageId(0),
     };
 
@@ -41,19 +42,28 @@ command!(get_history(_ctx, msg, args) {
 
     let mut buf = tempfile::tempfile()?;
     let mut next_id = from_id;
+    let mut next_ts = Date::from_utc(from_id.created_at().date(), Utc.fix());
 
-    loop {
+    'outer: loop {
         let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
         let count   = batch.len();
         let last_id = batch[0].id;
 
         for message in batch.into_iter().rev() {
             // TODO improve formatting; e.g., embeds, attachments, emoji. HTML?
-            let display_name = cached_display_name(message.guild_id, message.author.id)?;
-            writeln!(&mut buf, "{} <{}> {}", message.timestamp, display_name, message.content)?;
+            if message.timestamp.date() > next_ts {
+                next_ts = message.timestamp.date();
+                writeln!(&mut buf, "\n\t{}\n", next_ts.format("%A, %e %B %Y %Z"));
+            }
+
+            writeln!(&mut buf, "{}", message.to_logstr())?;
+
+            if message.id == until_id {
+                break 'outer;
+            }
         }
 
-        if count < 100 || next_id == last_id || last_id >= until_id {
+        if count < 100 || next_id == last_id {
             break;
         }
 

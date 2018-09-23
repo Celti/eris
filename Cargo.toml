@@ -12,6 +12,7 @@ dotenv = "0.13"
 exitfailure = "0.5"
 failure = "0.1"
 fnorder = "1"
+itertools = "0.7"
 lazy_static = "1"
 log = "0.4"
 log-panics = "2"
@@ -26,3 +27,8 @@ serde_derive = "1"
 serenity = "0.5"
 tempfile = "3"
 typemap = "0.3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+incremental = false
