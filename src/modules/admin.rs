@@ -3,13 +3,23 @@ use crate::model::{Prefix, PrefixCache, SerenityShardManager, Snowflake};
 use serenity::framework::standard::CreateGroup;
 use serenity::model::misc::Mentionable;
 use serenity::model::permissions::Permissions;
+use serenity::CACHE;
+use std::io::{Seek, SeekFrom, Write};
 
 cmd!(CacheDump(_ctx, msg)
      desc: "Dumps the current shard event cache.",
      dm_only: true,
      owners_only: true,
 {
-    serenity::utils::with_cache(|cache| reply!(msg, "CACHE DUMP: {:?}", cache));
+    let mut buf = tempfile::tempfile()?;
+
+    write!(&mut buf, "{:#?}", *CACHE.read())?;
+    buf.seek(SeekFrom::Start(0))?;
+
+    let filename = format!("eris-cache-{}.log", msg.id.created_at());
+    let content = format!("Cache dump for {}.", msg.id.created_at());
+
+    msg.channel_id.send_files(Some((&buf, &*filename)), |m| m.reactions(Some('❌')).content(content))?;
 });
 
 cmd!(ChangeGame(ctx, msg, args)

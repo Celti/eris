@@ -33,7 +33,7 @@ impl EventHandler for Handler {
             // Reroll dice.
             ReactionType::Unicode(ref x) if x == "🎲" => {
                 let mut map = ctx.data.lock();
-                let cache = map.get_mut::<DiceCache>().unwrap();
+                let cache = map.entry::<DiceCache>().or_insert_with(Default::default);
 
                 let result: Result<(), CommandError> = try {
                     if let Some(expr) = cache.remove(&re.message_id) {
