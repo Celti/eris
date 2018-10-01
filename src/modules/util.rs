@@ -1,9 +1,60 @@
 use chrono::{Date, Offset, Utc};
-use crate::model::MessageExt;
+use crate::model::{MessageExt, Owner};
+use humantime::format_duration;
 use serenity::model::id::{ChannelId, MessageId};
 use serenity::model::misc::Mentionable;
+use std::time::Duration;
 use std::io::{Seek, SeekFrom, Write};
 use std::process::Command;
+use sysinfo::{
+    ProcessExt,
+    SystemExt,
+    System,
+    get_current_pid
+};
+
+cmd!(About(ctx, msg, _args)
+     aliases: ["about"],
+     desc: "About the bot.",
+     num_args: 0,
+{
+    let data = ctx.data.lock();
+    let owner = data.get::<Owner>().expect("owner").to_user()?;
+    let (guild_count, shard_count, thumbnail) = serenity::utils::with_cache(|cache| {
+        (cache.guilds.len(), cache.shard_count, cache.user.face())
+    });
+
+    let sys = System::new();
+    if let Some(process) = sys.get_process(get_current_pid()) {
+        msg.channel_id.send_message(|m| m
+            .embed(|e| e
+                .description("I am Eris, Goddess of Discord (a dicebot historically, now an idiosyncratic entity written in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity)).")
+                .field("Admin", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
+                .field("Links", "[Invite](https://discordapp.com/api/oauth2/authorize?client_id=256287298155577344&permissions=0&scope=bot)\n[Source](https://github.com/Celti/eris)", true)
+                .field("Counts", format!("Servers: {}\nShards: {}", guild_count, shard_count), false)
+                .field("System Info", format!("OS: {} {}\nUptime: {}",
+                    sys_info::os_type().unwrap_or(String::from("OS Not Found")),
+                    sys_info::os_release().unwrap_or(String::from("Release Not Found")),
+                    format_duration(Duration::from_secs(sys.get_uptime()))), true)
+                .field("Process Info", format!("Memory Usage: {} mB\nCPU Usage {}%\nUptime: {}",
+                    process.memory()/1000, // convert to mB
+                    (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
+                    format_duration(Duration::from_secs(sys.get_uptime() - process.start_time()))), true)
+                .thumbnail(thumbnail)
+                .colour(15385601)
+        ))?;
+    } else {
+        msg.channel_id.send_message(|m| m
+            .embed(|e| e
+                .description("I am Eris, Goddess of Discord (a dicebot historically, now an idiosyncratic entity written in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity)).")
+                .field("Admin", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
+                .field("Links", "[Invite](https://discordapp.com/api/oauth2/authorize?client_id=256287298155577344&permissions=0&scope=bot)\n[Source](https://github.com/Celti/eris)", true)
+                .field("Counts", format!("Servers: {}\nShards: {}", guild_count, shard_count), false)
+                .thumbnail(thumbnail)
+                .colour(15385601)
+        ))?;
+    }
+});
 
 cmd!(Calc(_ctx, msg, args)
      aliases: ["calc"],
@@ -115,4 +166,4 @@ cmd!(TimeStamp(_ctx, msg, args)
     reply!(msg, "Snowflake {} was created at {} UTC.", id, id.created_at());
 });
 
-grp![Calc, LogFile, TimeStamp];
+grp![About, Calc, LogFile, TimeStamp];
