@@ -1,13 +1,15 @@
-use crate::types::*;
+use crate::model::DiceCache;
+
 use lazy_static::lazy_static;
 use regex::Regex;
 use self::parse::Roll;
-use serenity::command;
-use serenity::framework::standard::{Args, CommandError};
+use serenity::model::misc::Mentionable;
+use serenity::framework::standard::{Args, CommandError, CreateGroup};
 
+// TODO refactor parsing
 // TODO versus modes for games besides GURPS
 
-command!(dice(ctx, msg, args) {
+cmd!(Dice(ctx, msg, args), desc: "Calculate an expression in modified algebraic dice notation.", {
     let expr = args.full().to_owned();
     let name = msg.author.id.mention();
     let roll = process_args(args)?;
@@ -21,17 +23,12 @@ command!(dice(ctx, msg, args) {
     cache.insert(sent.id, expr);
 });
 
+pub fn commands(g: CreateGroup) -> CreateGroup {
+    g.cmd("roll", Dice::new())
+}
+
 pub fn process_args(mut args: Args) -> Result<String, CommandError> {
-    let res = if let Ok(r) = args.single::<Roll>() {
-        r
-    } else {
-        "3d6".parse().unwrap()
-    };
-    let rem = if let Ok(s) = args.multiple::<String>() {
-        s.join(" ")
-    } else {
-        String::new()
-    };
+    let res = args.single::<Roll>().unwrap_or_else(|_| "3d6".parse().unwrap());
 
     let mut comment = String::new();
     let mut out = Vec::new();
@@ -41,7 +38,7 @@ pub fn process_args(mut args: Args) -> Result<String, CommandError> {
         \s* r(?:e|epeat)? \s* (?P<r1>\d+) (?: \s* v(?:s|ersus)? \s* (?P<t2>\D+?.*?)? [\s-] (?P<v2>-?\d+) \s* )?
     ) \s* (?:\#(?P<c>.+)$)?").unwrap(); }
 
-    if let Some(caps) = RE.captures(&rem) {
+    if let Some(caps) = RE.captures(args.rest()) {
         let rolls: Vec<Roll> = if let Some(repeat) = caps.name("r1").or_else(|| caps.name("r2")) {
             let x = repeat.as_str().parse::<usize>()?;
             res.into_iter().take(x).collect()
@@ -117,10 +114,8 @@ mod parse {
     use rand::distributions::{Distribution, Uniform};
     use regex::Regex;
     use std::{error::Error as StdError, num::ParseIntError};
-    use std::{
-        fmt::{Display, Formatter, Result as FmtResult},
-        str::FromStr,
-    };
+    use std::fmt::{Display, Formatter, Result as FmtResult};
+    use std::str::FromStr;
 
     fn normalize_str(s: &str) -> String {
         s.to_lowercase()

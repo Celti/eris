@@ -4,34 +4,25 @@ table! {
         definition -> Text,
         submitter -> Int8,
         timestamp -> Timestamptz,
-        embed -> Bool,
+        embedded -> Bool,
     }
 }
 
 table! {
     keywords (keyword) {
         keyword -> Text,
-        owner -> Nullable<Int8>,
-        shuffle -> Bool,
-        protect -> Bool,
+        owner -> Int8,
+        bareword -> Bool,
         hidden -> Bool,
-        bare -> Bool,
+        protect -> Bool,
+        shuffle -> Bool,
     }
 }
 
 table! {
     prefixes (id) {
         id -> Int8,
-        prefix -> Nullable<Text>,
-    }
-}
-
-table! {
-    seen (id) {
-        id -> Int8,
-        at -> Timestamptz,
-        kind -> Text,
-        name -> Text,
+        prefix -> Text,
     }
 }
 
@@ -41,5 +32,4 @@ allow_tables_to_appear_in_same_query!(
     definitions,
     keywords,
     prefixes,
-    seen,
 );
