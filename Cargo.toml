@@ -32,6 +32,9 @@ tempfile = "3"
 typemap = "0.3"
 unicode-segmentation = "1"
 
+[patch.crates-io]
+openssl = { git = "https://github.com/ishitatsuyuki/rust-openssl", branch = "0.9.x" }
+
 [profile.release]
 lto = true
 codegen-units = 1

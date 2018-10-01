@@ -1,5 +1,4 @@
 use rand::Rng;
-use serenity::framework::standard::CreateGroup;
 
 const ANSWERS: [&str; 28] = [
     "Yes.", "My sources say yes.", "As I see it, yes.", "Of course!",
@@ -17,7 +16,7 @@ const ANSWERS: [&str; 28] = [
 ];
 
 cmd!(Choose(_ctx, msg, args)
-     aliases: ["decide", "pick"],
+     aliases: ["choose", "decide", "pick"],
      desc: "Choose between multiple comma-delimited options.",
      example: "Option A, Option B, or Option C",
      min_args: 2,
@@ -36,6 +35,7 @@ cmd!(Choose(_ctx, msg, args)
 });
 
 cmd!(CoinFlip(_ctx, msg)
+     aliases: ["flip", "coin"],
      desc: "Flips a coin.",
      num_args: 0,
 {
@@ -51,15 +51,11 @@ cmd!(CoinFlip(_ctx, msg)
 });
 
 cmd!(EightBall(_ctx, msg)
-     aliases: ["8ball", "eight"],
+     aliases: ["8ball", "ask", "eight"],
      desc: "Ask the Magic 8-Ball™ a yes-or-no question.",
      min_args: 1,
 {
     msg.reply(rand::thread_rng().choose(&ANSWERS).unwrap())?;
 });
 
-pub fn commands(g: CreateGroup) -> CreateGroup {
-    g.cmd("choose", Choose::new())
-     .cmd("flip", CoinFlip::new())
-     .cmd("ask", EightBall::new())
-}
+grp![Choose, CoinFlip, EightBall];

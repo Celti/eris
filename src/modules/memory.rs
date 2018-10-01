@@ -9,7 +9,7 @@ use failure::Fail;
 use rand::Rng;
 use self::QueryError::{NotFound, DatabaseError};
 use serenity::builder::CreateMessage;
-use serenity::framework::standard::{Args, CommandError, CreateGroup};
+use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
 use serenity::model::id::{ChannelId, UserId};
 use serenity::model::misc::Mentionable;
@@ -48,7 +48,9 @@ enum MemoryError {
     Other(#[cause] QueryError)
 }
 
-cmd!(Details(ctx, msg, _args), desc: "Retrieve metadata for the current keyword definition.", num_args: 0, {
+cmd!(Details(ctx, msg, _args)
+     aliases: ["details"],
+     desc: "Retrieve metadata for the current keyword definition.", num_args: 0, {
     if let Some(memory) = ctx.data.lock().get::<MemoryCache>().and_then(|m| m.get(&msg.channel_id)) {
         let kw   = &memory.def[memory.idx].keyword;
         let idx  = memory.idx + 1;
@@ -60,11 +62,15 @@ cmd!(Details(ctx, msg, _args), desc: "Retrieve metadata for the current keyword 
     }
 });
 
-cmd!(Embed(_ctx, msg, args), desc: "Add a new keyword embed.", min_args: 2, {
+cmd!(Embed(_ctx, msg, args)
+     aliases: ["embed"],
+     desc: "Add a new keyword embed.", min_args: 2, {
     add_entry(&msg, &mut args, true)?;
 });
 
-cmd!(Find(_ctx, msg, args), desc: "Find a keyword by match.", num_args: 1, {
+cmd!(Find(_ctx, msg, args)
+     aliases: ["find"],
+     desc: "Find a keyword by match.", num_args: 1, {
     let partial = args.single::<String>()?;
 
     match DB.find_keywords(&partial) {
@@ -75,7 +81,9 @@ cmd!(Find(_ctx, msg, args), desc: "Find a keyword by match.", num_args: 1, {
     };
 });
 
-cmd!(Forget(_ctx, msg, args), desc: "Forget a specific keyword definition.", min_args: 2, {
+cmd!(Forget(_ctx, msg, args)
+     aliases: ["forget"],
+     desc: "Forget a specific keyword definition.", min_args: 2, {
     let keyword = args.single::<String>()?;
     let definition = args.rest().to_string();
 
@@ -109,7 +117,9 @@ cmd!(Forget(_ctx, msg, args), desc: "Forget a specific keyword definition.", min
     }
 });
 
-cmd!(Match(ctx, msg, args), desc: "Match against a keyword's definitions.", min_args: 2, {
+cmd!(Match(ctx, msg, args)
+     aliases: ["match"],
+     desc: "Match against a keyword's definitions.", min_args: 2, {
     let keyword = args.single::<String>()?;
     let partial = args.rest().to_string();
 
@@ -152,7 +162,9 @@ cmd!(Match(ctx, msg, args), desc: "Match against a keyword's definitions.", min_
     }
 });
 
-cmd!(Next(ctx, msg, _args), desc: "Retrieve the current keyword's next definition.", num_args: 0, {
+cmd!(Next(ctx, msg, _args)
+     aliases: ["next"],
+     desc: "Retrieve the current keyword's next definition.", num_args: 0, {
     if let Some(memory) = ctx.data.lock().get_mut::<MemoryCache>().and_then(|m| m.get_mut(&msg.channel_id)) {
         if memory.idx == memory.def.len() - 1 {
             memory.idx = 0;
@@ -164,7 +176,9 @@ cmd!(Next(ctx, msg, _args), desc: "Retrieve the current keyword's next definitio
     }
 });
 
-cmd!(Prev(ctx, msg, _args), desc: "Retrieve the current keyword's previous definition.", num_args: 0, {
+cmd!(Prev(ctx, msg, _args)
+     aliases: ["prev"],
+     desc: "Retrieve the current keyword's previous definition.", num_args: 0, {
     if let Some(memory) = ctx.data.lock().get_mut::<MemoryCache>().and_then(|m| m.get_mut(&msg.channel_id)) {
         if memory.idx == 0 {
             memory.idx = memory.def.len() - 1;
@@ -176,7 +190,9 @@ cmd!(Prev(ctx, msg, _args), desc: "Retrieve the current keyword's previous defin
     }
 });
 
-cmd!(Recall(ctx, msg, args), desc: "Retrieve a keyword's definitions.", num_args: 1, {
+cmd!(Recall(ctx, msg, args)
+     aliases: ["recall"],
+     desc: "Retrieve a keyword's definitions.", num_args: 1, {
     let keyword = args.single::<String>()?;
 
     let result: Result<Memory, MemoryError> = try {
@@ -216,11 +232,15 @@ cmd!(Recall(ctx, msg, args), desc: "Retrieve a keyword's definitions.", num_args
     }
 });
 
-cmd!(Remember(_ctx, msg, args), desc: "Add a new keyword definition.", min_args: 2, {
+cmd!(Remember(_ctx, msg, args)
+     aliases: ["remember"],
+     desc: "Add a new keyword definition.", min_args: 2, {
     add_entry(&msg, &mut args, false)?;
 });
 
-cmd!(Set(_ctx, msg, args), desc: "Set keyword options.", min_args: 2, {
+cmd!(Set(_ctx, msg, args)
+     aliases: ["set"],
+     desc: "Set keyword options.", min_args: 2, {
     let keyword = args.single::<String>()?;
     let user    = msg.author.id.to_i64();
 
@@ -304,15 +324,4 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
     Ok(())
 }
 
-pub fn commands(g: CreateGroup) -> CreateGroup {
-    g.cmd("details", Details::new())
-     .cmd("embed", Embed::new())
-     .cmd("find", Find::new())
-     .cmd("forget", Forget::new())
-     .cmd("match", Match::new())
-     .cmd("next", Next::new())
-     .cmd("prev", Prev::new())
-     .cmd("recall", Recall::new())
-     .cmd("remember", Remember::new())
-     .cmd("set", Set::new())
-}
+grp![Details, Embed, Find, Forget, Match, Next, Prev, Recall, Remember, Set];

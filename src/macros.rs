@@ -125,3 +125,25 @@ macro_rules! cmd {
         }
     };
 }
+
+#[macro_export]
+macro_rules! grp {
+    ($($cmd:ident),*$(,)?) => {
+        pub fn commands(_: ::serenity::framework::standard::CreateGroup) -> ::serenity::framework::standard::CreateGroup {
+            let mut g = ::serenity::framework::standard::CommandGroup::default();
+            let c: &[std::sync::Arc<dyn serenity::framework::standard::Command>] = &[$(std::sync::Arc::new($cmd::new())),*];
+
+            for command in c.iter() {
+                let name = command.options().aliases[0].clone();
+
+                for alias in command.options().aliases[1..].iter() {
+                    g.commands.insert(alias.clone(), ::serenity::framework::standard::CommandOrAlias::Alias(name.clone()));
+                }
+
+                g.commands.insert(name, ::serenity::framework::standard::CommandOrAlias::Command(::std::sync::Arc::clone(command)));
+            }
+
+            ::serenity::framework::standard::CreateGroup(g)
+        }
+    };
+}

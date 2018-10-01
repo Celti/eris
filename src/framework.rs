@@ -43,6 +43,7 @@ impl Framework {
             })
 
         .after(after)
+        //.before(before)
         .help(help)
         .on_dispatch_error(on_dispatch_error)
         .unrecognised_command(unrecognised_command)

@@ -1,12 +1,12 @@
 use chrono::{Date, Offset, Utc};
 use crate::model::MessageExt;
-use serenity::framework::standard::CreateGroup;
 use serenity::model::id::{ChannelId, MessageId};
 use serenity::model::misc::Mentionable;
 use std::io::{Seek, SeekFrom, Write};
 use std::process::Command;
 
 cmd!(Calc(_ctx, msg, args)
+     aliases: ["calc"],
      desc: "A unit-aware precision calculator based on GNU units.",
      min_args: 1,
      usage: "expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}",
@@ -24,7 +24,7 @@ cmd!(Calc(_ctx, msg, args)
 });
 
 cmd!(LogFile(_ctx, msg, args)
-     aliases: ["logs"],
+     aliases: ["log", "logs"],
      desc: "Generate a log file for a channel.",
      max_args: 3,
      usage: "[channel [from-msg-id [to-msg-id]]]`\nDefaults to the entirety of the current channel. `\u{200B}",
@@ -94,7 +94,7 @@ cmd!(LogFile(_ctx, msg, args)
 });
 
 cmd!(TimeStamp(_ctx, msg, args)
-     aliases: ["time", "timestamp", "date", "datestamp"],
+     aliases: ["when", "time", "timestamp", "date", "datestamp"],
      desc: "Get the timestamp of the specified Discord snowflake (object ID).",
 {
     // All snowflakes are the same for timestamps. MessageId has the desired method.
@@ -115,8 +115,4 @@ cmd!(TimeStamp(_ctx, msg, args)
     reply!(msg, "Snowflake {} was created at {} UTC.", id, id.created_at());
 });
 
-pub fn commands(g: CreateGroup) -> CreateGroup {
-    g.cmd("calc", Calc::new())
-     .cmd("log", LogFile::new())
-     .cmd("when", TimeStamp::new())
-}
+grp![Calc, LogFile, TimeStamp];

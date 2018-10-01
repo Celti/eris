@@ -1,20 +1,29 @@
-use serenity::framework::standard::{CommandError, CreateGroup};
+use serenity::framework::standard::CommandError;
 use std::process::Command;
 
 cmd!(CalcLinear(_ctx, msg, arg)
-     aliases: ["super"],
+     aliases: ["linear", "super"],
      desc: "Calculate the linear value for a given size/range modifier.",
      num_args: 1,
 {
     let val = arg.single::<f64>()?;
     let cof = ((val % 6.0) + 2.0) / 6.0;
     let mag = (val / 6.0).trunc();
-    let lin = 10f64.powf(cof) * 10f64.powf(mag);
-    reply!(msg, "Size: {}; Linear Value: {}", val, lin);
+    let raw = 10f64.powf(cof) * 10f64.powf(mag);
+
+    let rnd = {
+        if (val + 1.0) % 6.0 == 0.0 {
+            10f64.powf((raw.log10() - 1.0).floor())
+        } else {
+            10f64.powf(raw.log10().floor())
+        }
+    };
+
+    reply!(msg, "Size: {}; Linear Value: {}", val, (raw / rnd).round() * rnd);
 });
 
 cmd!(CalcLogNeg(_ctx, msg, args)
-     aliases: ["speed", "range"],
+     aliases: ["sr", "speed", "range"],
      desc: "Calculate the speed/range penalty for a given measurement.",
      min_args: 1,
 {
@@ -22,7 +31,7 @@ cmd!(CalcLogNeg(_ctx, msg, args)
 });
 
 cmd!(CalcLogPos(_ctx, msg, args)
-     aliases: ["size"],
+     aliases: ["sm", "size"],
      desc: "Calculate the size modifier for a given measurement.",
      min_args: 1,
 {
@@ -30,6 +39,7 @@ cmd!(CalcLogPos(_ctx, msg, args)
 });
 
 cmd!(CalcStrength(_ctx, msg, args)
+     aliases: ["st"],
      desc: "Calculate Basic Lift and damage for a given ST (using KYOS).",
      num_args: 1,
 {
@@ -44,7 +54,7 @@ cmd!(CalcStrength(_ctx, msg, args)
     let swing = {
         let swing = (st - 6.0) / 4.0;
         if swing < 1.0 {
-            format!("1d{}", st - 10.0)
+            format!("*Sw* 1d{}", st - 10.0)
         } else {
             #[allow(clippy::float_cmp)] // Matches exactly within desired range.
             match swing % 1f64 {
@@ -60,7 +70,7 @@ cmd!(CalcStrength(_ctx, msg, args)
     let thrust = {
         let thrust = (st - 8.0) / 4.0;
         if thrust < 1.0 {
-            format!("1d{}", st - 12.0)
+            format!("*Thr* 1d{}", st - 12.0)
         } else {
             #[allow(clippy::float_cmp)] // Matches exactly within desired range.
             match thrust % 1f64 {
@@ -76,12 +86,7 @@ cmd!(CalcStrength(_ctx, msg, args)
     reply!(msg, "**ST** {}: **Basic Lift** {}; **Damage** {}{}", st, lift, thrust, swing);
 });
 
-pub fn commands(g: CreateGroup) -> CreateGroup {
-    g.cmd("linear", CalcLinear::new())
-     .cmd("sr",     CalcLogNeg::new())
-     .cmd("sm",     CalcLogPos::new())
-     .cmd("st",     CalcStrength::new())
-}
+grp![CalcLinear, CalcLogNeg, CalcLogPos, CalcStrength];
 
 fn sm(yards: f64) -> f64 {
     let ord = 10f64.powf(yards.log10().floor());
@@ -89,15 +94,14 @@ fn sm(yards: f64) -> f64 {
     let val = yards / ord;
 
     mul + match val {
-        f if f > 15.0 =>  6f64,
-        f if f > 10.0 =>  5f64,
         f if f >  7.0 =>  4f64,
         f if f >  5.0 =>  3f64,
         f if f >  3.0 =>  2f64,
         f if f >  2.0 =>  1f64,
         f if f >  1.5 =>  0f64,
         f if f >  1.0 => -1f64,
-        _             => unreachable!()
+        f if f >  0.0 => -2f64,
+        _             => std::f64::NAN
     }
 }
 

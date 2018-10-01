@@ -1,12 +1,12 @@
 use crate::db::DB;
 use crate::model::{Prefix, PrefixCache, SerenityShardManager, Snowflake};
-use serenity::framework::standard::CreateGroup;
 use serenity::model::misc::Mentionable;
 use serenity::model::permissions::Permissions;
 use serenity::CACHE;
 use std::io::{Seek, SeekFrom, Write};
 
 cmd!(CacheDump(_ctx, msg)
+     aliases: ["cache_dump", "dump_cache"],
      desc: "Dumps the current shard event cache.",
      dm_only: true,
      owners_only: true,
@@ -23,19 +23,20 @@ cmd!(CacheDump(_ctx, msg)
 });
 
 cmd!(ChangeGame(ctx, msg, args)
-    aliases: ["play"],
-    desc: "Set the currently displayed game tag.",
-    min_args: 1,
-    owners_only: true,
+     aliases: ["playing", "play"],
+     desc: "Set the currently displayed game tag.",
+     min_args: 1,
+     owners_only: true,
 {
     ctx.set_game(args.full());
     msg.reply("Game set.")?;
 });
 
 cmd!(ChangeNick(_ctx, msg, args)
-    desc: "Change Eris's nickname on the current guild.",
-    guild_only: true,
-    required_permissions: Permissions::ADMINISTRATOR,
+     aliases: ["nick"],
+     desc: "Change Eris's nickname on the current guild.",
+     guild_only: true,
+     required_permissions: Permissions::ADMINISTRATOR,
 {
     let guild = msg.guild_id.unwrap();
     let nick = args.full();
@@ -47,6 +48,7 @@ cmd!(ChangeNick(_ctx, msg, args)
 });
 
 cmd!(ChangePrefix(ctx, msg, args)
+     aliases: ["prefix"],
      desc: "Change the command prefix for the current guild or channel.",
      required_permissions: Permissions::ADMINISTRATOR,
 {
@@ -85,9 +87,10 @@ cmd!(ChangePrefix(ctx, msg, args)
 });
 
 cmd!(ChangeTopic(_ctx, msg, args)
-    desc: "Change the current channel topic.",
-    guild_only: true,
-    required_permissions: Permissions::MANAGE_CHANNELS,
+     aliases: ["topic"],
+     desc: "Change the current channel topic.",
+     guild_only: true,
+     required_permissions: Permissions::MANAGE_CHANNELS,
 {
     let new = args.trim();
     let old = msg.channel_id.to_channel_cached()
@@ -109,8 +112,9 @@ cmd!(ChangeTopic(_ctx, msg, args)
 });
 
 cmd!(Quit(ctx, msg)
-    desc: "Disconnect the bot from Discord.",
-    owners_only: true,
+     aliases: ["quit"],
+     desc: "Disconnect the bot from Discord.",
+     owners_only: true,
 {
     let map = ctx.data.lock();
     let shard_manager = map.get::<SerenityShardManager>().unwrap();
@@ -119,11 +123,4 @@ cmd!(Quit(ctx, msg)
     shard_manager.lock().shutdown_all();
 });
 
-pub fn commands(g: CreateGroup) -> CreateGroup {
-    g.cmd("dump_cache", CacheDump::new())
-     .cmd("playing",    ChangeGame::new())
-     .cmd("nick",       ChangeNick::new())
-     .cmd("prefix",     ChangePrefix::new())
-     .cmd("topic",      ChangeTopic::new())
-     .cmd("quit",       Quit::new())
-}
+grp![CacheDump, ChangeGame, ChangeNick, ChangePrefix, ChangeTopic, Quit];

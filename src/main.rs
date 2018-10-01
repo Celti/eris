@@ -30,10 +30,13 @@ use std::sync::Arc;
 
 fn init_logger() {
     if std::env::var("RUST_LOG_TARGET").ok().as_deref() == Some("systemd") {
-        let _ = systemd::journal::JournalLog::init();
+        systemd::journal::JournalLog::init().expect("systemd journal");
+        log::set_max_level(log::LevelFilter::Info);
     } else {
         pretty_env_logger::init();
     }
+
+    log::info!("Initialised logger.");
 }
 
 fn main() {

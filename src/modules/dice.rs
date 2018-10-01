@@ -4,12 +4,15 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use self::parse::Roll;
 use serenity::model::misc::Mentionable;
-use serenity::framework::standard::{Args, CommandError, CreateGroup};
+use serenity::framework::standard::{Args, CommandError};
 
 // TODO refactor parsing
 // TODO versus modes for games besides GURPS
 
-cmd!(Dice(ctx, msg, args), desc: "Calculate an expression in modified algebraic dice notation.", {
+cmd!(Dice(ctx, msg, args)
+     aliases: ["roll"],
+     desc: "Calculate an expression in modified algebraic dice notation.",
+{
     let expr = args.full().to_owned();
     let name = msg.author.id.mention();
     let roll = process_args(args)?;
@@ -23,9 +26,7 @@ cmd!(Dice(ctx, msg, args), desc: "Calculate an expression in modified algebraic 
     cache.insert(sent.id, expr);
 });
 
-pub fn commands(g: CreateGroup) -> CreateGroup {
-    g.cmd("roll", Dice::new())
-}
+grp![Dice];
 
 pub fn process_args(mut args: Args) -> Result<String, CommandError> {
     let res = args.single::<Roll>().unwrap_or_else(|_| "3d6".parse().unwrap());
