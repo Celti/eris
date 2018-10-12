@@ -16,7 +16,7 @@ humantime = "1"
 itertools = "0.7"
 lazy_static = "1"
 log = "0.4"
-log-panics = "2"
+log-panics = { version = "2", features = ["with-backtrace"] }
 maplit = "1"
 phf = "0.7"
 phf_macros = "0.7"
@@ -28,12 +28,14 @@ regex = "1"
 serde = "1"
 serde_derive = "1"
 serenity = "0.5"
+slugify = "0.1"
 sys-info = "0.5"
 sysinfo = "0.6"
 systemd = "0.3"
 tempfile = "3"
 typemap = "0.3"
 unicode-segmentation = "1"
+zip = "0.4"
 
 [patch.crates-io]
 openssl = { git = "https://github.com/ishitatsuyuki/rust-openssl", branch = "0.9.x" }

@@ -51,6 +51,7 @@ impl Framework {
         .group("Admin",  crate::modules::admin::commands)
         .group("Dice",   crate::modules::dice::commands)
         .group("GURPS",  crate::modules::gurps::commands)
+        .group("Logger", crate::modules::logger::commands)
         .group("Memory", crate::modules::memory::commands)
         .group("Random", crate::modules::random::commands)
         .group("Tools",  crate::modules::util::commands)

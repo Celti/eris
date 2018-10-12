@@ -1,10 +1,10 @@
-use chrono::{Date, Offset, Utc};
-use crate::model::{MessageExt, Owner};
+// use chrono::{Date, Offset, Utc};
+use crate::model::{/*MessageExt,*/ Owner};
 use humantime::format_duration;
-use serenity::model::id::{ChannelId, MessageId};
-use serenity::model::misc::Mentionable;
+use serenity::model::id::{/*ChannelId,*/ MessageId};
+//use serenity::model::misc::Mentionable;
 use std::time::Duration;
-use std::io::{Seek, SeekFrom, Write};
+//use std::io::{Seek, SeekFrom, Write};
 use std::process::Command;
 use sysinfo::{
     ProcessExt,
@@ -74,75 +74,75 @@ cmd!(Calc(_ctx, msg, args)
     msg.reply(&String::from_utf8_lossy(&output.stdout))?;
 });
 
-cmd!(LogFile(_ctx, msg, args)
-     aliases: ["log", "logs"],
-     desc: "Generate a log file for a channel.",
-     max_args: 3,
-     usage: "[channel [from-msg-id [to-msg-id]]]`\nDefaults to the entirety of the current channel. `\u{200B}",
-{
-    let channel_id = match args.single::<String>() {
-        Err(_) => msg.channel_id,
-        Ok(s)  => {
-            match serenity::utils::parse_channel(&s) {
-                Some(id) => ChannelId(id),
-                None     => s.parse::<u64>().map(ChannelId)?,
-            }
-        }
-    };
+// cmd!(LogFile(_ctx, msg, args)
+//      aliases: ["log", "logs"],
+//      desc: "Generate a log file for a channel.",
+//      max_args: 3,
+//      usage: "[channel [from-msg-id [to-msg-id]]]`\nDefaults to the entirety of the current channel. `\u{200B}",
+// {
+//     let channel_id = match args.single::<String>() {
+//         Err(_) => msg.channel_id,
+//         Ok(s)  => {
+//             match serenity::utils::parse_channel(&s) {
+//                 Some(id) => ChannelId(id),
+//                 None     => s.parse::<u64>().map(ChannelId)?,
+//             }
+//         }
+//     };
 
-    let from_id = match args.single::<String>() {
-        Ok(s)  => s.trim().parse::<u64>().map(|i| MessageId(i - 1))?,
-        Err(_) => MessageId(0),
-    };
+//     let from_id = match args.single::<String>() {
+//         Ok(s)  => s.trim().parse::<u64>().map(|i| MessageId(i - 1))?,
+//         Err(_) => MessageId(0),
+//     };
 
-    let until_id = match args.single::<String>() {
-        Ok(s)  => s.trim().parse::<u64>().map(MessageId)?,
-        Err(_) => MessageId(std::u64::MAX),
-    };
+//     let until_id = match args.single::<String>() {
+//         Ok(s)  => s.trim().parse::<u64>().map(MessageId)?,
+//         Err(_) => MessageId(std::u64::MAX),
+//     };
 
-    let mut buf = tempfile::tempfile()?;
-    let mut next_id = from_id;
-    let mut next_ts = Date::from_utc(from_id.created_at().date(), Utc.fix());
+//     let mut buf = tempfile::tempfile()?;
+//     let mut next_id = from_id;
+//     let mut next_ts = Date::from_utc(from_id.created_at().date(), Utc.fix());
 
-    'outer: loop {
-        let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
-        let count   = batch.len();
-        let last_id = batch[0].id;
+//     'outer: loop {
+//         let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
+//         let count   = batch.len();
+//         let last_id = batch[0].id;
 
-        for message in batch.into_iter().rev() {
-            if message.timestamp.date() > next_ts {
-                next_ts = message.timestamp.date();
-                writeln!(&mut buf, "-- Day changed {}", next_ts.format("%A, %e %B %Y %Z"));
-            }
+//         for message in batch.into_iter().rev() {
+//             if message.timestamp.date() > next_ts {
+//                 next_ts = message.timestamp.date();
+//                 writeln!(&mut buf, "-- Day changed {}", next_ts.format("%A, %e %B %Y %Z"));
+//             }
 
-            writeln!(&mut buf, "[{}] {}",
-                     message.timestamp.format("%H:%M:%S"),
-                     message.to_logstr())?;
+//             writeln!(&mut buf, "[{}] {}",
+//                      message.timestamp.format("%H:%M:%S"),
+//                      message.to_logstr())?;
 
-            if message.id == until_id {
-                break 'outer;
-            }
-        }
+//             if message.id == until_id {
+//                 break 'outer;
+//             }
+//         }
 
-        if count < 100 || next_id == last_id {
-            break;
-        }
+//         if count < 100 || next_id == last_id {
+//             break;
+//         }
 
-        next_id = last_id;
-    }
+//         next_id = last_id;
+//     }
 
-    buf.seek(SeekFrom::Start(0))?;
+//     buf.seek(SeekFrom::Start(0))?;
 
-    let channel  = channel_id.name().unwrap_or_else(|| channel_id.to_string());
-    let filename = format!("{}-{}.txt", channel, msg.timestamp);
+//     let channel  = channel_id.name().unwrap_or_else(|| channel_id.to_string());
+//     let filename = format!("{}-{}.txt", channel, msg.timestamp);
 
-    let content = format!("Logs for {} from {} to {}.",
-                          channel_id.mention(),
-                          from_id.created_at(),
-                          until_id.created_at());
+//     let content = format!("Logs for {} from {} to {}.",
+//                           channel_id.mention(),
+//                           from_id.created_at(),
+//                           until_id.created_at());
 
-    msg.channel_id.send_files(Some((&buf, &*filename)), |m| m.reactions(Some('❌')).content(content))?;
-});
+//     msg.channel_id.send_files(Some((&buf, &*filename)), |m| m.reactions(Some('❌')).content(content))?;
+// });
 
 cmd!(TimeStamp(_ctx, msg, args)
      aliases: ["when", "time", "timestamp", "date", "datestamp"],
@@ -166,4 +166,4 @@ cmd!(TimeStamp(_ctx, msg, args)
     reply!(msg, "Snowflake {} was created at {} UTC.", id, id.created_at());
 });
 
-grp![About, Calc, LogFile, TimeStamp];
+grp![About, Calc, TimeStamp];
