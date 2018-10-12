@@ -41,7 +41,7 @@ cmd!(About(ctx, msg, _args)
                     (process.cpu_usage()*100.0).round()/100.0, // round to 2 decimals
                     format_duration(Duration::from_secs(sys.get_uptime() - process.start_time()))), true)
                 .thumbnail(thumbnail)
-                .colour(15385601)
+                .colour(15_385_601)
         ))?;
     } else {
         msg.channel_id.send_message(|m| m
@@ -51,7 +51,7 @@ cmd!(About(ctx, msg, _args)
                 .field("Links", "[Invite](https://discordapp.com/api/oauth2/authorize?client_id=256287298155577344&permissions=0&scope=bot)\n[Source](https://github.com/Celti/eris)", true)
                 .field("Counts", format!("Servers: {}\nShards: {}", guild_count, shard_count), false)
                 .thumbnail(thumbnail)
-                .colour(15385601)
+                .colour(15_385_601)
         ))?;
     }
 });
