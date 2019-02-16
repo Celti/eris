@@ -3,12 +3,10 @@ mod schema;
 
 use crate::db::model::*;
 use crate::db::schema::*;
-use diesel::prelude::*;
-
 use diesel::pg::PgConnection;
+use diesel::prelude::*;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use lazy_static::lazy_static;
-
 use std::collections::HashMap;
 
 lazy_static! {
@@ -62,10 +60,9 @@ impl Database {
         // Ok(kw.save_changes(&self.get())?)
     }
 
-    #[allow(dead_code)]
-    pub fn del_keyword(&self, kw: &Keyword) -> QueryResult<Keyword> {
-        Ok(diesel::delete(kw).get_result(&self.get())?)
-    }
+    // pub fn del_keyword(&self, kw: &Keyword) -> QueryResult<Keyword> {
+    //     Ok(diesel::delete(kw).get_result(&self.get())?)
+    // }
 
     pub fn find_keywords(&self, partial: &str) -> QueryResult<Vec<Keyword>> {
         let find = format!("%{}%", partial);
@@ -153,6 +150,23 @@ impl Database {
 
     pub fn update_attribute(&self, attr: &Attribute) -> QueryResult<Attribute> {
         Ok(diesel::update(attr).set(attr).get_result(&self.get())?)
+    }
+
+    pub fn del_channel(&self, channel: &Channel) -> QueryResult<Channel> {
+        Ok(diesel::delete(channel).get_result(&self.get())?)
+    }
+
+    pub fn get_channel(&self, channel: i64) -> QueryResult<Channel> {
+        Ok(channels::table.find(channel).first(&self.get())?)
+    }
+
+    pub fn set_channel(&self, ch: &Channel) -> QueryResult<Channel> {
+        Ok(diesel::insert_into(channels::table)
+            .values(ch)
+            .on_conflict(channels::channel)
+            .do_update()
+            .set(ch)
+            .get_result(&self.get())?)
     }
 
     // pub fn upsert_attribute(&self, attr: &Attribute) -> QueryResult<Attribute> {

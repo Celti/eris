@@ -1,11 +1,12 @@
 use self::QueryError::{DatabaseError, NotFound};
-use crate::db::model::{Attribute, Character};
+use crate::db::model::{Attribute, Character, Channel};
 use crate::db::DB;
 use chrono::Utc;
 use diesel::result::DatabaseErrorKind::UniqueViolation;
 use diesel::result::Error as QueryError;
 use failure::{Fail, SyncFailure};
 use serenity::model::id::*;
+use serenity::model::misc::Mentionable;
 use serenity::Error as SerenityError;
 
 #[derive(Debug, Fail)]
@@ -70,10 +71,7 @@ cmd!(DelCharacter(_ctx, msg, args)
             Ok(character) => character,
         };
 
-        if ch.owner != msg.author.id.into():i64 {
-            Err(TrackError::Denied)?;
-        }
-
+        denied(&ch, msg.author.id)?;
         ChannelId(ch.channel as u64).delete_message(ch.pin as u64).map_err(|e| TrackError::Serenity(SyncFailure::new(e)))?;
         DB.del_character(&ch).map_err(TrackError::Query)?;
     };
@@ -106,9 +104,7 @@ cmd!(AddAttribute(_ctx, msg, args)
             Ok(character) => character,
         };
 
-        if ch.owner != msg.author.id.into():i64 {
-            Err(TrackError::Denied)?;
-        }
+        denied(&ch, msg.author.id)?;
 
         match DB.add_attribute(&Attribute { name: name.clone(), value, maximum, pin: ch.pin }) {
             Err(DatabaseError(UniqueViolation,_)) => Err(TrackError::Exists)?,
@@ -145,9 +141,7 @@ cmd!(DelAttribute(_ctx, msg, args)
             Ok(character) => character,
         };
 
-        if ch.owner != msg.author.id.into():i64 {
-            Err(TrackError::Denied)?;
-        }
+        denied(&ch, msg.author.id)?;
 
         match DB.del_attribute(&Attribute { name: name.clone(), value: 0, maximum: 0, pin: ch.pin }) {
             Err(NotFound) => Err(TrackError::Exists)?,
@@ -186,9 +180,7 @@ cmd!(UpdateAttribute(_ctx, msg, args)
             Ok(character) => character,
         };
 
-        if ch.owner != msg.author.id.into():i64 {
-            Err(TrackError::Denied)?;
-        }
+        denied(&ch, msg.author.id)?;
 
         let at = match DB.get_attribute_by_pair(&name, ch.pin) {
             Err(NotFound) => Err(TrackError::Exists)?,
@@ -216,6 +208,55 @@ cmd!(UpdateAttribute(_ctx, msg, args)
         Ok(()) => { say!(msg.channel_id, "Updated {} for {}.", name, who); }
     }
 });
+
+cmd!(SetChannelGM(_ctx, msg)
+     aliases: ["gm"],
+     desc: "Sets the user as the channel GM.",
+     max_args: 1,
+{
+    let channel = msg.channel_id.into():i64;
+    let gm = msg.author.id.into():i64;
+
+    let result: Result<(), TrackError> = try {
+        match DB.get_channel(channel) {
+            Err(NotFound) => {
+                DB.set_channel(&Channel{channel, gm}).map_err(TrackError::Query)?;
+            }
+            Ok(ch) => {
+                if ch.gm == gm {
+                    DB.del_channel(&Channel{channel, gm}).map_err(TrackError::Query)?;
+                } else {
+                    Err(TrackError::Denied)?;
+                }
+            }
+            Err(error) => Err(TrackError::Query(error))?,
+        };
+    };
+
+    match result {
+        Err(TrackError::Denied) => say!(msg.channel_id, "Sorry, {} already has a GM.", msg.channel_id.mention()),
+        Err(TrackError::Exists) | Err(TrackError::NotFound) => unreachable!(),
+        Err(TrackError::Query(error)) => Err(error)?,
+        Err(TrackError::Serenity(error)) => Err(error)?,
+        Ok(()) => say!(msg.channel_id, "Updated GM for {}.", msg.channel_id.mention()),
+    }
+});
+
+fn denied(ch: &Character, id: UserId) -> Result<(), TrackError> {
+    let user: i64 = id.into();
+
+    match DB.get_channel(ch.channel) {
+        Ok(channel) => if user != channel.gm || user != ch.owner {
+            Err(TrackError::Denied)?;
+        },
+        Err(NotFound) => if user != ch.owner {
+            Err(TrackError::Denied)?;
+        },
+        Err(error) => Err(TrackError::Query(error))?,
+    };
+
+    Ok(())
+}
 
 fn update_pin(ch: &Character, comment: &str) -> Result<(), TrackError> {
     let at_v = DB.get_attributes(ch).map_err(TrackError::Query)?;
@@ -248,4 +289,4 @@ fn update_pin(ch: &Character, comment: &str) -> Result<(), TrackError> {
     Ok(())
 }
 
-grp![AddCharacter, DelCharacter, AddAttribute, DelAttribute, UpdateAttribute];
+grp![AddCharacter, DelCharacter, AddAttribute, DelAttribute, UpdateAttribute, SetChannelGM];

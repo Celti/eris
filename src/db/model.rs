@@ -55,3 +55,11 @@ pub struct Attribute {
     pub value: i32,
     pub maximum: i32,
 }
+
+#[derive(Clone, Debug, Default, AsChangeset, Identifiable, Insertable, Queryable)]
+#[table_name = "channels"]
+#[primary_key(channel)]
+pub struct Channel {
+    pub channel: i64,
+    pub gm: i64,
+}

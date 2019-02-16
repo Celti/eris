@@ -8,6 +8,13 @@ table! {
 }
 
 table! {
+    channels (channel) {
+        channel -> Int8,
+        gm -> Int8,
+    }
+}
+
+table! {
     characters (pin) {
         name -> Text,
         channel -> Int8,
@@ -47,4 +54,11 @@ table! {
 joinable!(attributes -> characters (pin));
 joinable!(definitions -> keywords (keyword));
 
-allow_tables_to_appear_in_same_query!(attributes, characters, definitions, keywords, prefixes,);
+allow_tables_to_appear_in_same_query!(
+    attributes,
+    channels,
+    characters,
+    definitions,
+    keywords,
+    prefixes,
+);
