@@ -123,12 +123,9 @@ cmd!(SetAttribute(_ctx, msg, args)
         Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
         Err(TrackError::Query(error)) => { Err(error)?; }
         Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => {
-            if let Some(max) = maximum {
-                say!(msg.channel_id, "Set {} for {} to {}/{}.", name, who, value, max);
-            } else {
-                say!(msg.channel_id, "Set {} for {} to {}.", name, who, value);
-            }
+        Ok(()) => match maximum {
+            None | Some(0) => say!(msg.channel_id, "Set {} for {} to {}.", name, who, value),
+            Some(max) => say!(msg.channel_id, "Set {} for {} to {}/{}.", name, who, value, max),
         }
     }
 });
@@ -278,7 +275,7 @@ fn denied(ch: &Character, id: UserId) -> Result<(), TrackError> {
     let user: i64 = id.into();
 
     match DB.get_channel(ch.channel) {
-        Ok(channel) => if user != channel.gm || user != ch.owner {
+        Ok(channel) => if user != channel.gm && user != ch.owner {
             Err(TrackError::Denied)?;
         },
         Err(NotFound) => if user != ch.owner {
