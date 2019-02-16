@@ -76,17 +76,10 @@ cmd!(TimeStamp(_ctx, msg, args)
     // All snowflakes are the same for timestamps. MessageId has the desired method.
     let id = MessageId({
         let s = args.single::<String>()?;
-
-        if s.starts_with("<@&") {
-            serenity::utils::parse_role(&s)
-        } else if s.starts_with("<@") {
-            serenity::utils::parse_username(&s)
-        } else if s.starts_with("<#") {
-            serenity::utils::parse_channel(&s)
-        } else {
-            str::parse::<u64>(&s).ok()
-        }
-    }.ok_or("Could not parse snowflake!")?);
+        serenity::utils::parse_mention(&s)
+            .or_else(|| str::parse::<u64>(&s).ok())
+            .ok_or("Could not parse snowflake!")?
+    });
 
     reply!(msg, "Snowflake {} was created at {} UTC.", id, id.created_at());
 });
