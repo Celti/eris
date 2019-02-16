@@ -34,3 +34,24 @@ pub struct Definition {
     pub timestamp: DateTime<Utc>,
     pub embedded: bool,
 }
+
+#[derive(Clone, Debug, Default, AsChangeset, Identifiable, Insertable, Queryable)]
+#[table_name = "characters"]
+#[primary_key(pin)]
+pub struct Character {
+    pub name: String,
+    pub channel: i64,
+    pub owner: i64,
+    pub pin: i64,
+}
+
+#[derive(Clone, Debug, AsChangeset, Associations, Identifiable, Insertable, Queryable)]
+#[belongs_to(Character, foreign_key = "pin")]
+#[table_name = "attributes"]
+#[primary_key(name, pin)]
+pub struct Attribute {
+    pub pin: i64,
+    pub name: String,
+    pub value: i32,
+    pub maximum: i32,
+}

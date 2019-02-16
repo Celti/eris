@@ -109,4 +109,58 @@ impl Database {
             .filter(definitions::definition.ilike(&find))
             .get_results(&self.get())?)
     }
+
+    pub fn add_character(&self, ch: &Character) -> QueryResult<Character> {
+        Ok(diesel::insert_into(characters::table)
+            .values(ch)
+            .get_result(&self.get())?)
+    }
+
+    pub fn add_attribute(&self, attr: &Attribute) -> QueryResult<Attribute> {
+        Ok(diesel::insert_into(attributes::table)
+            .values(attr)
+            .get_result(&self.get())?)
+    }
+
+    pub fn del_character(&self, ch: &Character) -> QueryResult<Character> {
+        Ok(diesel::delete(ch).get_result(&self.get())?)
+    }
+
+    pub fn del_attribute(&self, attr: &Attribute) -> QueryResult<Attribute> {
+        Ok(diesel::delete(attr).get_result(&self.get())?)
+    }
+
+    pub fn get_character_by_pair(&self, name: &str, channel: i64) -> QueryResult<Character> {
+        Ok(characters::table
+            .filter(characters::name.eq(name))
+            .filter(characters::channel.eq(channel))
+            .first(&self.get())?)
+    }
+
+    // pub fn get_character_by_pin(&self, pin: i64) -> QueryResult<Character> {
+    //     Ok(characters::table
+    //         .filter(characters::pin.eq(pin))
+    //         .first(&self.get())?)
+    // }
+
+    pub fn get_attributes(&self, ch: &Character) -> QueryResult<Vec<Attribute>> {
+        Ok(Attribute::belonging_to(ch).get_results(&self.get())?)
+    }
+
+    pub fn get_attribute_by_pair(&self, name: &str, pin: i64) -> QueryResult<Attribute> {
+        Ok(attributes::table.find((name, pin)).first(&self.get())?)
+    }
+
+    pub fn update_attribute(&self, attr: &Attribute) -> QueryResult<Attribute> {
+        Ok(diesel::update(attr).set(attr).get_result(&self.get())?)
+    }
+
+    // pub fn upsert_attribute(&self, attr: &Attribute) -> QueryResult<Attribute> {
+    //     Ok(diesel::insert_into(attributes::table)
+    //         .values(attr)
+    //         .on_conflict((attributes::pin, attributes::name))
+    //         .do_update()
+    //         .set(attr)
+    //         .get_result(&self.get())?)
+    // }
 }

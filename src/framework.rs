@@ -54,6 +54,7 @@ impl Framework {
             .group("Random", crate::modules::random::commands)
             .group("Tools", crate::modules::util::commands)
             .group("Toys", crate::modules::toys::commands)
+            .group("Character Tracker", crate::modules::chartrack::commands)
     }
 }
 

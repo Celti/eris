@@ -1,4 +1,22 @@
 table! {
+    attributes (name, pin) {
+        pin -> Int8,
+        name -> Text,
+        value -> Int4,
+        maximum -> Int4,
+    }
+}
+
+table! {
+    characters (pin) {
+        name -> Text,
+        channel -> Int8,
+        owner -> Int8,
+        pin -> Int8,
+    }
+}
+
+table! {
     definitions (keyword, definition) {
         keyword -> Text,
         definition -> Text,
@@ -26,10 +44,7 @@ table! {
     }
 }
 
+joinable!(attributes -> characters (pin));
 joinable!(definitions -> keywords (keyword));
 
-allow_tables_to_appear_in_same_query!(
-    definitions,
-    keywords,
-    prefixes,
-);
+allow_tables_to_appear_in_same_query!(attributes, characters, definitions, keywords, prefixes,);
