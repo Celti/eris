@@ -163,18 +163,6 @@ impl Database {
     pub fn set_channel(&self, ch: &Channel) -> QueryResult<Channel> {
         Ok(diesel::insert_into(channels::table)
             .values(ch)
-            .on_conflict(channels::channel)
-            .do_update()
-            .set(ch)
             .get_result(&self.get())?)
     }
-
-    // pub fn upsert_attribute(&self, attr: &Attribute) -> QueryResult<Attribute> {
-    //     Ok(diesel::insert_into(attributes::table)
-    //         .values(attr)
-    //         .on_conflict((attributes::pin, attributes::name))
-    //         .do_update()
-    //         .set(attr)
-    //         .get_result(&self.get())?)
-    // }
 }
