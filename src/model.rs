@@ -48,6 +48,7 @@ pub trait MessageExt {
     fn content_safe_all(&self) -> String;
     fn to_logstr(&self) -> String;
     fn logger(&self);
+    fn link(&self) -> String;
 }
 
 impl MessageExt for Message {
@@ -165,5 +166,16 @@ impl MessageExt for Message {
 
     fn to_logstr(&self) -> String {
         format!("<@{}> {}", self.distinct(), self.content_safe_all())
+    }
+
+    fn link(&self) -> String {
+        format!(
+            "https://discordapp.com/channels/{}/{}/{}",
+            self.guild_id
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| String::from("@me")),
+            self.channel_id,
+            self.id
+        )
     }
 }
