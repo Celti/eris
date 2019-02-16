@@ -1,5 +1,5 @@
 use crate::db::DB;
-use crate::model::{Prefix, PrefixCache, SerenityShardManager, Snowflake};
+use crate::model::{Prefix, PrefixCache, SerenityShardManager};
 use serenity::model::misc::Mentionable;
 use serenity::model::permissions::Permissions;
 use serenity::CACHE;
@@ -55,12 +55,12 @@ cmd!(ChangePrefix(ctx, msg, args)
     let new = {
         if msg.guild_id.is_none() || args.starts_with("channel") {
             Prefix {
-                id:     -msg.channel_id.to_i64(),
-                prefix: args.trim_left_matches("channel").trim().to_string(),
+                id:     -(msg.channel_id.into():i64),
+                prefix: args.trim_start_matches("channel").trim().to_string(),
             }
         } else {
             Prefix {
-                id:     msg.guild_id.unwrap().to_i64(),
+                id:     msg.guild_id.unwrap().into():i64,
                 prefix: args.trim().to_string(),
             }
         }
@@ -92,7 +92,7 @@ cmd!(ChangeTopic(_ctx, msg, args)
      guild_only: true,
      required_permissions: Permissions::MANAGE_CHANNELS,
 {
-    let new = args.trim();
+    let new = args.full().trim();
     let old = msg.channel_id.to_channel_cached()
         .and_then(|c| c.guild())
         .and_then(|g| g.read().topic.clone());

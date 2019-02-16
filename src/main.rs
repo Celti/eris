@@ -1,16 +1,10 @@
-#![deny(warnings)]
-#![feature(macro_at_most_once_rep)]
 #![feature(nll)]
-#![feature(plugin)]
-#![feature(tool_lints)]
-#![feature(trace_macros)]
 #![feature(try_blocks)]
-#![plugin(phf_macros)]
-
-#![allow(proc_macro_derive_resolution_fallback)]    // FIXME Diesel 1.4+
-#[macro_use] extern crate diesel;                   // FIXME Rust 2018 / Diesel 1.4
-
-#[macro_use] mod macros;
+#![feature(type_ascription)]
+#[macro_use]
+extern crate diesel;
+#[macro_use]
+mod macros;
 
 mod db;
 mod ext;

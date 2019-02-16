@@ -7,7 +7,6 @@ use diesel::prelude::*;
 
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
-//use diesel::{AsChangeset, Identifiable, Insertable, Queryable}; // FIXME Rust 2018 / Diesel 1.4+
 use lazy_static::lazy_static;
 
 use std::collections::HashMap;
@@ -59,7 +58,8 @@ impl Database {
     }
 
     pub fn update_keyword(&self, kw: &Keyword) -> QueryResult<Keyword> {
-        Ok(kw.save_changes(&self.get())?)
+        Ok(diesel::update(kw).set(kw).get_result(&self.get())?)
+        // Ok(kw.save_changes(&self.get())?)
     }
 
     #[allow(dead_code)]

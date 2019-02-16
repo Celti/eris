@@ -3,11 +3,10 @@ use serenity::CACHE;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::model::id::*;
 use serenity::model::channel::Message;
-use serenity::prelude::Mutex;
+use serenity::prelude::*;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
-use typemap::Key;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::ext::EMOJI;
@@ -15,22 +14,22 @@ use crate::ext::EMOJI;
 pub use crate::db::model::*;
 
 pub struct Owner;
-impl Key for Owner {
+impl TypeMapKey for Owner {
     type Value = UserId;
 }
 
 pub struct SerenityShardManager;
-impl Key for SerenityShardManager {
+impl TypeMapKey for SerenityShardManager {
     type Value = Arc<Mutex<ShardManager>>;
 }
 
 pub struct DiceCache;
-impl Key for DiceCache {
+impl TypeMapKey for DiceCache {
     type Value = HashMap<MessageId, String>;
 }
 
 pub struct PrefixCache;
-impl Key for PrefixCache {
+impl TypeMapKey for PrefixCache {
     type Value = HashMap<i64, String>;
 }
 
@@ -42,33 +41,6 @@ impl<T: Deref> OptionDeref<T> for Option<T> {
     fn as_deref(&self) -> Option<&T::Target> {
         self.as_ref().map(Deref::deref)
     }
-}
-
-pub trait Snowflake {
-    fn to_i64(&self) -> i64;
-}
-
-macro_rules! impl_snowflake {
-    ($($type:ty),* $(,)?) => {
-        $(
-            impl Snowflake for $type {
-                fn to_i64(&self) -> i64 { *self.as_u64() as i64 }
-            }
-        )*
-    }
-}
-
-impl_snowflake! {
-    ApplicationId,
-    ChannelId,
-    EmojiId,
-    GuildId,
-    IntegrationId,
-    MessageId,
-    RoleId,
-    UserId,
-    WebhookId,
-    AuditLogEntryId,
 }
 
 pub trait MessageExt {

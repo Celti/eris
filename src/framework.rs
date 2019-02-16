@@ -1,7 +1,7 @@
 #![allow(clippy::needless_pass_by_value)]
 
 use crate::db::DB;
-use crate::model::{PrefixCache, Snowflake};
+use crate::model::PrefixCache;
 
 use serenity::framework::standard::{
     help_commands,
@@ -70,8 +70,8 @@ fn dynamic_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
     let mut map = ctx.data.lock();
     let cache = map.entry::<PrefixCache>().or_insert_with(|| DB.get_prefixes().unwrap());
 
-    let channel_prefix = cache.get(&(-msg.channel_id.to_i64())).filter(|s| !s.is_empty());
-    let guild_prefix = || msg.guild_id.and_then(|i| cache.get(&(i.to_i64())).filter(|s| !s.is_empty()));
+    let channel_prefix = cache.get(&(-(msg.channel_id.into():i64))).filter(|s| !s.is_empty());
+    let guild_prefix = || msg.guild_id.and_then(|i| cache.get(&(i.into():i64)).filter(|s| !s.is_empty()));
 
     channel_prefix.or_else(guild_prefix).cloned()
 }

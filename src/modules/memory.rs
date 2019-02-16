@@ -1,4 +1,3 @@
-use crate::model::Snowflake;
 use crate::db::DB;
 use crate::db::model::{Definition, Keyword};
 
@@ -6,16 +5,18 @@ use chrono::{TimeZone, Utc};
 use diesel::result::DatabaseErrorKind::UniqueViolation;
 use diesel::result::Error as QueryError;
 use failure::Fail;
-use rand::Rng;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use self::QueryError::{NotFound, DatabaseError};
 use serenity::builder::CreateMessage;
 use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
 use serenity::model::id::{ChannelId, UserId};
 use serenity::model::misc::Mentionable;
+use serenity::prelude::TypeMapKey;
 
 struct MemoryCache;
-impl typemap::Key for MemoryCache {
+impl TypeMapKey for MemoryCache {
     type Value = std::collections::HashMap<ChannelId, Memory>;
 }
 
@@ -94,7 +95,7 @@ cmd!(Forget(_ctx, msg, args)
             Ok(keyword)   => keyword,
         };
 
-        if (kw.hidden || kw.protect) && kw.owner != msg.author.id.to_i64() {
+        if (kw.hidden || kw.protect) && kw.owner != msg.author.id.into():i64 {
             Err(MemoryError::Denied)?;
         }
 
@@ -130,7 +131,7 @@ cmd!(Match(ctx, msg, args)
             Ok(kw)   => kw,
         };
 
-        if kw.hidden && kw.owner != msg.author.id.to_i64() {
+        if kw.hidden && kw.owner != msg.author.id.into():i64 {
             Err(MemoryError::Denied)?;
         }
 
@@ -141,7 +142,7 @@ cmd!(Match(ctx, msg, args)
         }
 
         if kw.shuffle {
-            rand::thread_rng().shuffle(&mut definitions);
+            definitions.shuffle(&mut thread_rng());
         }
 
         Memory { idx: 0, def: definitions }
@@ -202,14 +203,14 @@ cmd!(Recall(ctx, msg, args)
             Ok(keyword)   => keyword,
         };
 
-        if kw.hidden && kw.owner != msg.author.id.to_i64() {
+        if kw.hidden && kw.owner != msg.author.id.into():i64 {
             Err(MemoryError::Denied)?;
         }
 
         let mut definitions = DB.get_definitions(&kw).map_err(MemoryError::Other)?;
 
         if kw.shuffle {
-            rand::thread_rng().shuffle(&mut definitions);
+            definitions.shuffle(&mut thread_rng());
         }
 
         if definitions.is_empty() {
@@ -242,7 +243,7 @@ cmd!(Set(_ctx, msg, args)
      aliases: ["set"],
      desc: "Set keyword options.", min_args: 2, {
     let keyword = args.single::<String>()?;
-    let user    = msg.author.id.to_i64();
+    let user    = msg.author.id.into():i64;
 
     let result: Result<(), MemoryError> = try {
         let mut kw = match DB.get_keyword(&keyword) {
@@ -285,7 +286,7 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
     let definition = args.rest().to_string();
 
     let result: Result<(), MemoryError> = try {
-        let submitter  = msg.author.id.to_i64();
+        let submitter  = msg.author.id.into():i64;
         let timestamp  = Utc.from_utc_datetime(&msg.timestamp.naive_utc());
         let bareword   = false;
         let hidden     = false;

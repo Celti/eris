@@ -1,4 +1,6 @@
 use rand::Rng;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 const ANSWERS: [&str; 28] = [
     "Yes.", "My sources say yes.", "As I see it, yes.", "Of course!",
@@ -30,7 +32,7 @@ cmd!(Choose(_ctx, msg, args)
     if choices.len() < 2 {
         msg.reply("No.")?;
     } else {
-        msg.reply(rand::thread_rng().choose(&choices).unwrap())?;
+        msg.reply(choices.choose(&mut thread_rng()).unwrap())?;
     }
 });
 
@@ -55,7 +57,7 @@ cmd!(EightBall(_ctx, msg)
      desc: "Ask the Magic 8-Ball™ a yes-or-no question.",
      min_args: 1,
 {
-    msg.reply(rand::thread_rng().choose(&ANSWERS).unwrap())?;
+        msg.reply(ANSWERS.choose(&mut thread_rng()).unwrap())?;
 });
 
 grp![Choose, CoinFlip, EightBall];

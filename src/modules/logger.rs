@@ -26,7 +26,7 @@ fn log_channel(channel_id: ChannelId, from_id: MessageId, until_id: MessageId) -
         for message in batch.into_iter().rev() {
             if message.timestamp.date() > next_ts {
                 next_ts = message.timestamp.date();
-                writeln!(&mut buf, "-- Day changed {}", next_ts.format("%A, %e %B %Y %Z"));
+                writeln!(&mut buf, "-- Day changed {}", next_ts.format("%A, %e %B %Y %Z"))?;
             }
 
             writeln!(&mut buf, "[{}] {}",
