@@ -42,9 +42,9 @@ impl EventHandler for Handler {
                         let args = Args::new(&expr, &[" ".to_string()]);
                         let name = re.user_id.mention();
                         let roll = crate::modules::dice::process_args(args)?;
-                        let sent = re.channel_id.send_message(|m| { m
-                            .content(format!("**{} rolled:**{}", name, roll))
-                            .reactions(vec!['🎲'])
+                        let sent = re.channel_id.send_message(|m| {
+                            m.content(format!("**{} rolled:**{}", name, roll))
+                                .reactions(vec!['🎲'])
                         })?;
 
                         cache.insert(sent.id, expr);
@@ -54,7 +54,7 @@ impl EventHandler for Handler {
                 };
 
                 if let Err(err) = result {
-                   log::error!("error repeating dice roll: {:?}", err);
+                    log::error!("error repeating dice roll: {:?}", err);
                 }
             }
 
@@ -69,7 +69,7 @@ impl EventHandler for Handler {
                 };
 
                 if let Err(err) = result {
-                   log::error!("error deleting message: {:?}", err);
+                    log::error!("error deleting message: {:?}", err);
                 }
             }
 

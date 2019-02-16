@@ -1,20 +1,36 @@
-use rand::Rng;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use rand::Rng;
 
 const ANSWERS: [&str; 28] = [
-    "Yes.", "My sources say yes.", "As I see it, yes.", "Of course!",
-    "Ha! What a dumb question! Yes.", "No.", "My sources say no.",
-    "Maybe, but don't count on it.", "Hell no!", "Ha! What a dumb question! No.",
-    "Maybe.", "How the hell should I know?", "Only under certain conditions.",
-    "I have no idea!", "Hm. That's a very good question. Maybe?",
-    "Can I lie about the answer?", "Go flip a coin!",
-    "I don't think I should answer that.", "I'm in a bad mood, go away.",
+    "Yes.",
+    "My sources say yes.",
+    "As I see it, yes.",
+    "Of course!",
+    "Ha! What a dumb question! Yes.",
+    "No.",
+    "My sources say no.",
+    "Maybe, but don't count on it.",
+    "Hell no!",
+    "Ha! What a dumb question! No.",
+    "Maybe.",
+    "How the hell should I know?",
+    "Only under certain conditions.",
+    "I have no idea!",
+    "Hm. That's a very good question. Maybe?",
+    "Can I lie about the answer?",
+    "Go flip a coin!",
+    "I don't think I should answer that.",
+    "I'm in a bad mood, go away.",
     "If I told you that, I'd have to kill you.",
     "My lawyer says I shouldn't answer that on the grounds that I may incriminate myself.",
-    "My sources are mysteriously silent on that subject.", "Once in a blue moon.",
+    "My sources are mysteriously silent on that subject.",
+    "Once in a blue moon.",
     "That is a question you should ask yourself.",
-    "Why do you want to know?", "Corner pocket.", "Scratch.", "Side pocket."
+    "Why do you want to know?",
+    "Corner pocket.",
+    "Scratch.",
+    "Side pocket.",
 ];
 
 cmd!(Choose(_ctx, msg, args)

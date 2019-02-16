@@ -1,22 +1,26 @@
-use chrono::{Date, Offset, Utc};
 use crate::model::MessageExt;
+use chrono::{Date, Offset, Utc};
 use serenity::framework::standard::CommandError;
 use serenity::model::id::{ChannelId, GuildId, MessageId};
 use serenity::model::misc::Mentionable;
-use std::io::{Seek, SeekFrom, Write};
-use std::fs::File;
-use zip::write::{FileOptions, ZipWriter};
-use slugify::slugify;
 use serenity::model::permissions::Permissions;
+use slugify::slugify;
+use std::fs::File;
+use std::io::{Seek, SeekFrom, Write};
+use zip::write::{FileOptions, ZipWriter};
 
-fn log_channel(channel_id: ChannelId, from_id: MessageId, until_id: MessageId) -> Result<File, CommandError> {
+fn log_channel(
+    channel_id: ChannelId,
+    from_id: MessageId,
+    until_id: MessageId,
+) -> Result<File, CommandError> {
     let mut buf = tempfile::tempfile()?;
     let mut next_id = from_id;
     let mut next_ts = Date::from_utc(from_id.created_at().date(), Utc.fix());
 
     'outer: loop {
-        let batch   = channel_id.messages(|m| m.after(next_id).limit(100))?;
-        let count   = batch.len();
+        let batch = channel_id.messages(|m| m.after(next_id).limit(100))?;
+        let count = batch.len();
         let last_id = if let Some(msg) = batch.get(0) {
             msg.id
         } else {
@@ -26,12 +30,19 @@ fn log_channel(channel_id: ChannelId, from_id: MessageId, until_id: MessageId) -
         for message in batch.into_iter().rev() {
             if message.timestamp.date() > next_ts {
                 next_ts = message.timestamp.date();
-                writeln!(&mut buf, "-- Day changed {}", next_ts.format("%A, %e %B %Y %Z"))?;
+                writeln!(
+                    &mut buf,
+                    "-- Day changed {}",
+                    next_ts.format("%A, %e %B %Y %Z")
+                )?;
             }
 
-            writeln!(&mut buf, "[{}] {}",
-                     message.timestamp.format("%H:%M:%S"),
-                     message.to_logstr())?;
+            writeln!(
+                &mut buf,
+                "[{}] {}",
+                message.timestamp.format("%H:%M:%S"),
+                message.to_logstr()
+            )?;
 
             if message.id == until_id {
                 break 'outer;

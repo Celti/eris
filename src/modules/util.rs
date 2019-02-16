@@ -1,17 +1,12 @@
 // use chrono::{Date, Offset, Utc};
-use crate::model::{/*MessageExt,*/ Owner};
+use crate::model::Owner;
 use humantime::format_duration;
-use serenity::model::id::{/*ChannelId,*/ MessageId};
+use serenity::model::id::MessageId;
 //use serenity::model::misc::Mentionable;
 use std::time::Duration;
 //use std::io::{Seek, SeekFrom, Write};
 use std::process::Command;
-use sysinfo::{
-    ProcessExt,
-    SystemExt,
-    System,
-    get_current_pid
-};
+use sysinfo::{get_current_pid, ProcessExt, System, SystemExt};
 
 cmd!(About(ctx, msg, _args)
      aliases: ["about"],

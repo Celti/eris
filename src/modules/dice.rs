@@ -1,10 +1,10 @@
 use crate::model::DiceCache;
 
+use self::parse::Roll;
 use lazy_static::lazy_static;
 use regex::Regex;
-use self::parse::Roll;
-use serenity::model::misc::Mentionable;
 use serenity::framework::standard::{Args, CommandError};
+use serenity::model::misc::Mentionable;
 
 // TODO refactor parsing
 // TODO versus modes for games besides GURPS
@@ -29,7 +29,9 @@ cmd!(Dice(ctx, msg, args)
 grp![Dice];
 
 pub fn process_args(mut args: Args) -> Result<String, CommandError> {
-    let res = args.single::<Roll>().unwrap_or_else(|_| "3d6".parse().unwrap());
+    let res = args
+        .single::<Roll>()
+        .unwrap_or_else(|_| "3d6".parse().unwrap());
 
     let mut comment = String::new();
     let mut out = Vec::new();
@@ -114,9 +116,9 @@ mod parse {
     use lazy_static::lazy_static;
     use rand::distributions::{Distribution, Uniform};
     use regex::Regex;
-    use std::{error::Error as StdError, num::ParseIntError};
     use std::fmt::{Display, Formatter, Result as FmtResult};
     use std::str::FromStr;
+    use std::{error::Error as StdError, num::ParseIntError};
 
     fn normalize_str(s: &str) -> String {
         s.to_lowercase()
@@ -215,7 +217,8 @@ mod parse {
                     \d+ d (?:\d+)? (?: [bw] \d+ )? | # Term::Dice
                     [-+×x*/\\÷%^]                  | # Term::<Op>
                     -? \d+                           # Term::Num"
-                ).unwrap();
+                )
+                .unwrap();
             }
 
             let s = normalize_str(s);

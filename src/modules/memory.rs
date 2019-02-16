@@ -1,13 +1,13 @@
-use crate::db::DB;
 use crate::db::model::{Definition, Keyword};
+use crate::db::DB;
 
+use self::QueryError::{DatabaseError, NotFound};
 use chrono::{TimeZone, Utc};
 use diesel::result::DatabaseErrorKind::UniqueViolation;
 use diesel::result::Error as QueryError;
 use failure::Fail;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use self::QueryError::{NotFound, DatabaseError};
 use serenity::builder::CreateMessage;
 use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
@@ -46,7 +46,7 @@ enum MemoryError {
     #[fail(display = "Keyword not found.")]
     NotFound,
     #[fail(display = "{}", _0)]
-    Other(#[cause] QueryError)
+    Other(#[cause] QueryError),
 }
 
 cmd!(Details(ctx, msg, _args)
@@ -282,24 +282,37 @@ cmd!(Set(_ctx, msg, args)
 });
 
 fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), CommandError> {
-    let keyword    = args.single::<String>()?;
+    let keyword = args.single::<String>()?;
     let definition = args.rest().to_string();
 
     let result: Result<(), MemoryError> = try {
-        let submitter  = msg.author.id.into():i64;
-        let timestamp  = Utc.from_utc_datetime(&msg.timestamp.naive_utc());
-        let bareword   = false;
-        let hidden     = false;
-        let protect    = false;
-        let shuffle    = true;
+        let submitter = msg.author.id.into(): i64;
+        let timestamp = Utc.from_utc_datetime(&msg.timestamp.naive_utc());
+        let bareword = false;
+        let hidden = false;
+        let protect = false;
+        let shuffle = true;
 
-        let kw  = Keyword { keyword: keyword.clone(), owner: submitter, bareword, hidden, protect, shuffle };
-        let def = Definition { keyword: keyword.clone(), definition, submitter, timestamp, embedded };
+        let kw = Keyword {
+            keyword: keyword.clone(),
+            owner: submitter,
+            bareword,
+            hidden,
+            protect,
+            shuffle,
+        };
+        let def = Definition {
+            keyword: keyword.clone(),
+            definition,
+            submitter,
+            timestamp,
+            embedded,
+        };
 
         let kw = match DB.get_keyword(&keyword) {
             Err(NotFound) => DB.add_keyword(&kw).map_err(MemoryError::Other)?,
-            Err(error)    => Err(MemoryError::Other(error))?,
-            Ok(keyword)   => keyword,
+            Err(error) => Err(MemoryError::Other(error))?,
+            Ok(keyword) => keyword,
         };
 
         if (kw.hidden || kw.protect) && kw.owner != submitter {
@@ -307,19 +320,35 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
         }
 
         match DB.add_definition(&def) {
-            Err(DatabaseError(UniqueViolation,_)) => Err(MemoryError::Exists)?,
+            Err(DatabaseError(UniqueViolation, _)) => Err(MemoryError::Exists)?,
             Err(error) => Err(MemoryError::Other(error))?,
             Ok(_) => (),
         };
     };
 
     match result {
-        Err(MemoryError::Denied)       => { say!(msg.channel_id, "Sorry, you're not allowed to edit `{}`.", keyword); }
-        Err(MemoryError::Exists)       => { say!(msg.channel_id, "Sorry, I already know that about `{}`.", keyword); }
-        Err(MemoryError::Invalid(_))   => { unreachable!() }
-        Err(MemoryError::NotFound)     => { unreachable!() }
-        Err(MemoryError::Other(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "Entry added for {}.", keyword); }
+        Err(MemoryError::Denied) => {
+            say!(
+                msg.channel_id,
+                "Sorry, you're not allowed to edit `{}`.",
+                keyword
+            );
+        }
+        Err(MemoryError::Exists) => {
+            say!(
+                msg.channel_id,
+                "Sorry, I already know that about `{}`.",
+                keyword
+            );
+        }
+        Err(MemoryError::Invalid(_)) => unreachable!(),
+        Err(MemoryError::NotFound) => unreachable!(),
+        Err(MemoryError::Other(error)) => {
+            Err(error)?;
+        }
+        Ok(()) => {
+            say!(msg.channel_id, "Entry added for {}.", keyword);
+        }
     }
 
     Ok(())

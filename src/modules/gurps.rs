@@ -94,14 +94,14 @@ fn sm(yards: f64) -> f64 {
     let val = yards / ord;
 
     mul + match val {
-        f if f >  7.0 =>  4f64,
-        f if f >  5.0 =>  3f64,
-        f if f >  3.0 =>  2f64,
-        f if f >  2.0 =>  1f64,
-        f if f >  1.5 =>  0f64,
-        f if f >  1.0 => -1f64,
-        f if f >  0.0 => -2f64,
-        _             => std::f64::NAN
+        f if f > 7.0 => 4f64,
+        f if f > 5.0 => 3f64,
+        f if f > 3.0 => 2f64,
+        f if f > 2.0 => 1f64,
+        f if f > 1.5 => 0f64,
+        f if f > 1.0 => -1f64,
+        f if f > 0.0 => -2f64,
+        _ => std::f64::NAN,
     }
 }
 

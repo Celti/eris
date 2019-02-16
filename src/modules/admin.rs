@@ -123,4 +123,11 @@ cmd!(Quit(ctx, msg)
     shard_manager.lock().shutdown_all();
 });
 
-grp![CacheDump, ChangeGame, ChangeNick, ChangePrefix, ChangeTopic, Quit];
+grp![
+    CacheDump,
+    ChangeGame,
+    ChangeNick,
+    ChangePrefix,
+    ChangeTopic,
+    Quit
+];

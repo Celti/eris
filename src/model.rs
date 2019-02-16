@@ -1,9 +1,9 @@
 use itertools::Itertools;
-use serenity::CACHE;
 use serenity::client::bridge::gateway::ShardManager;
-use serenity::model::id::*;
 use serenity::model::channel::Message;
+use serenity::model::id::*;
 use serenity::prelude::*;
+use serenity::CACHE;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -58,21 +58,24 @@ impl MessageExt for Message {
                     .read()
                     .member(guild_id, self.author.id)
                     .map(|member| member.distinct())
-            }).unwrap_or_else(|| self.author.tag())
+            })
+            .unwrap_or_else(|| self.author.tag())
     }
 
     fn content_safe_all(&self) -> String {
-        use serenity::utils::{parse_channel, parse_emoji, parse_role, parse_username};
         use lazy_static::lazy_static;
         use regex::{Captures, Regex};
+        use serenity::utils::{parse_channel, parse_emoji, parse_role, parse_username};
 
         lazy_static! {
-            static ref RE: Regex = Regex::new(r"(?x)
+            static ref RE: Regex = Regex::new(
+                r"(?x)
                 (?P<user>    <@ !? [[:digit:]]+ >               ) |
                 (?P<role>    <@ &  [[:digit:]]+ >               ) |
                 (?P<channel> <\#   [[:digit:]]+ >               ) |
-                (?P<emoji>   <a? : [[:word:]]+ : [[:digit:]]+ > )")
-                .unwrap();
+                (?P<emoji>   <a? : [[:word:]]+ : [[:digit:]]+ > )"
+            )
+            .unwrap();
         }
 
         let replacer = |cap: &Captures| -> String {
@@ -103,22 +106,29 @@ impl MessageExt for Message {
         };
 
         let content = RE.replace_all(&self.content, replacer).into_owned();
-        let mut content = content.graphemes(true).map(|g| *EMOJI.get(g).unwrap_or(&g)).collect::<String>();
+        let mut content = content
+            .graphemes(true)
+            .map(|g| *EMOJI.get(g).unwrap_or(&g))
+            .collect::<String>();
 
         let attachments = self.attachments.iter().map(|a| &a.url).join(", ");
-        let embeds = self.embeds.iter().filter_map(|ref e| {
-            let video: Option<&str> = e.video.as_ref().map(|v| v.url.as_str());
-            let image: Option<&str> = e.image.as_ref().map(|v| v.url.as_str());
-            let url  : Option<&str> = e.url.as_ref().map(String::as_str);
-            let desc : Option<&str> = e.description.as_ref().map(String::as_str);
-            video.or(image).or(url).or(desc)
-        }).join(", ");
+        let embeds = self
+            .embeds
+            .iter()
+            .filter_map(|ref e| {
+                let video: Option<&str> = e.video.as_ref().map(|v| v.url.as_str());
+                let image: Option<&str> = e.image.as_ref().map(|v| v.url.as_str());
+                let url: Option<&str> = e.url.as_ref().map(String::as_str);
+                let desc: Option<&str> = e.description.as_ref().map(String::as_str);
+                video.or(image).or(url).or(desc)
+            })
+            .join(", ");
 
-        if ! attachments.is_empty() {
+        if !attachments.is_empty() {
             content.push_str(&format!("\n[Attachments: {}]", attachments));
         }
 
-        if ! embeds.is_empty() {
+        if !embeds.is_empty() {
             content.push_str(&format!("\n[Embeds: {}]", embeds));
         }
 
@@ -130,8 +140,8 @@ impl MessageExt for Message {
         match self.channel_id.to_channel_cached() {
             Some(Guild(lock)) => {
                 let channel = lock.read();
-                let lock    = channel.guild().unwrap();
-                let guild   = lock.read();
+                let lock = channel.guild().unwrap();
+                let guild = lock.read();
                 log::info!(target: "messages", "[{} #{}] {}", guild.name, channel.name(), self.to_logstr());
             }
 

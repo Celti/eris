@@ -7,7 +7,7 @@ use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable};
 #[table_name = "prefixes"]
 #[primary_key(id)]
 pub struct Prefix {
-    pub id:     i64,
+    pub id: i64,
     pub prefix: String,
 }
 
@@ -15,12 +15,12 @@ pub struct Prefix {
 #[table_name = "keywords"]
 #[primary_key(keyword)]
 pub struct Keyword {
-    pub keyword:  String,
-    pub owner:    i64,
+    pub keyword: String,
+    pub owner: i64,
     pub bareword: bool,
-    pub hidden:   bool,
-    pub protect:  bool,
-    pub shuffle:  bool,
+    pub hidden: bool,
+    pub protect: bool,
+    pub shuffle: bool,
 }
 
 #[derive(Clone, Debug, AsChangeset, Associations, Identifiable, Insertable, Queryable)]
@@ -28,9 +28,9 @@ pub struct Keyword {
 #[table_name = "definitions"]
 #[primary_key(keyword, definition)]
 pub struct Definition {
-    pub keyword:    String,
+    pub keyword: String,
     pub definition: String,
-    pub submitter:  i64,
-    pub timestamp:  DateTime<Utc>,
-    pub embedded:   bool,
+    pub submitter: i64,
+    pub timestamp: DateTime<Utc>,
+    pub embedded: bool,
 }
