@@ -160,7 +160,7 @@ cmd!(DelAttribute(_ctx, msg, args)
         Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
         Err(TrackError::Query(error)) => { Err(error)?; }
         Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "Now tracking {} for {}.", name, who); }
+        Ok(()) => { say!(msg.channel_id, "Stopped tracking {} for {}.", name, who); }
     }
 });
 
