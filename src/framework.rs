@@ -1,6 +1,6 @@
 #![allow(clippy::needless_pass_by_value)]
 
-use crate::db::DB;
+use crate::db::{DynamicPrefix, Memory};
 use crate::model::PrefixCache;
 
 use serenity::framework::standard::{
@@ -69,7 +69,7 @@ fn dynamic_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
     let mut map = ctx.data.lock();
     let cache = map
         .entry::<PrefixCache>()
-        .or_insert_with(|| DB.get_prefixes().unwrap());
+        .or_insert_with(|| DynamicPrefix::get().unwrap());
 
     let channel_prefix = cache
         .get(&(-(msg.channel_id.into(): i64)))
@@ -131,7 +131,7 @@ fn on_dispatch_error(_: Context, msg: Message, err: DispatchError) {
 }
 
 fn unrecognised_command(_: &mut Context, msg: &Message, name: &str) {
-    match DB.get_bareword(name) {
+    match Memory::get_bareword(name) {
         Err(diesel::result::Error::NotFound) => (),
         Err(err) => log::warn!("[{}:{}] {:?}", line!(), column!(), err),
         Ok(def) => {

@@ -45,6 +45,14 @@ table! {
 }
 
 table! {
+    notes (name, pin) {
+        pin -> Int8,
+        name -> Text,
+        note -> Text,
+    }
+}
+
+table! {
     prefixes (id) {
         id -> Int8,
         prefix -> Text,
@@ -53,6 +61,7 @@ table! {
 
 joinable!(attributes -> characters (pin));
 joinable!(definitions -> keywords (keyword));
+joinable!(notes -> characters (pin));
 
 allow_tables_to_appear_in_same_query!(
     attributes,
@@ -60,5 +69,6 @@ allow_tables_to_appear_in_same_query!(
     characters,
     definitions,
     keywords,
+    notes,
     prefixes,
 );

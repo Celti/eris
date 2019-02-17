@@ -1,4 +1,4 @@
-use crate::db::DB;
+use crate::db::DynamicPrefix as DB;
 use crate::model::{Prefix, PrefixCache, SerenityShardManager};
 use serenity::model::misc::Mentionable;
 use serenity::model::permissions::Permissions;
@@ -66,11 +66,11 @@ cmd!(ChangePrefix(ctx, msg, args)
         }
     };
 
-    DB.upsert_prefix(&new)?;
+    DB::set(&new)?;
 
     let old = ctx.data.lock()
         .entry::<PrefixCache>()
-        .or_insert_with(|| DB.get_prefixes().unwrap())
+        .or_insert_with(|| DB::get().unwrap())
         .insert(new.id, new.prefix.clone());
 
     if let Some(old) = old.filter(|s| !s.is_empty()) {

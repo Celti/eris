@@ -1,5 +1,5 @@
 use crate::db::model::{Definition, Keyword};
-use crate::db::DB;
+use crate::db::Memory as DB;
 
 use self::QueryError::{DatabaseError, NotFound};
 use chrono::{TimeZone, Utc};
@@ -74,7 +74,7 @@ cmd!(Find(_ctx, msg, args)
      desc: "Find a keyword by match.", num_args: 1, {
     let partial = args.single::<String>()?;
 
-    match DB.find_keywords(&partial) {
+    match DB::find_keywords(&partial) {
         Ok(ref kw) if kw.is_empty() => say!(msg.channel_id, "Sorry, I didn't find any keywords matching `{}`.", partial),
         Err(NotFound) => say!(msg.channel_id, "Sorry, I didn't find any keywords matching `{}`.", partial),
         Ok(keywords) => say!(msg.channel_id, "I found the following keywords: `{:?}`", keywords),
@@ -89,7 +89,7 @@ cmd!(Forget(_ctx, msg, args)
     let definition = args.rest().to_string();
 
     let result: Result<(), MemoryError> = try {
-        let kw = match DB.get_keyword(&keyword) {
+        let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
             Ok(keyword)   => keyword,
@@ -99,13 +99,13 @@ cmd!(Forget(_ctx, msg, args)
             Err(MemoryError::Denied)?;
         }
 
-        let def = match DB.get_definition(&keyword, &definition) {
+        let def = match DB::get_definition(&keyword, &definition) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error) => Err(MemoryError::Other(error))?,
             Ok(definition) => definition,
         };
 
-        DB.del_definition(&def).map_err(MemoryError::Other)?;
+        DB::del_definition(&def).map_err(MemoryError::Other)?;
     };
 
     match result {
@@ -125,7 +125,7 @@ cmd!(Match(ctx, msg, args)
     let partial = args.rest().to_string();
 
     let result: Result<Memory, MemoryError> = try {
-        let kw = match DB.get_keyword(&keyword) {
+        let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
             Ok(kw)   => kw,
@@ -135,7 +135,7 @@ cmd!(Match(ctx, msg, args)
             Err(MemoryError::Denied)?;
         }
 
-        let mut definitions = DB.find_definitions(&kw, &partial).map_err(MemoryError::Other)?;
+        let mut definitions = DB::find_definitions(&kw, &partial).map_err(MemoryError::Other)?;
 
         if definitions.is_empty() {
             Err(MemoryError::NotFound)?;
@@ -197,7 +197,7 @@ cmd!(Recall(ctx, msg, args)
     let keyword = args.single::<String>()?;
 
     let result: Result<Memory, MemoryError> = try {
-        let kw = match DB.get_keyword(&keyword) {
+        let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
             Ok(keyword)   => keyword,
@@ -207,7 +207,7 @@ cmd!(Recall(ctx, msg, args)
             Err(MemoryError::Denied)?;
         }
 
-        let mut definitions = DB.get_definitions(&kw).map_err(MemoryError::Other)?;
+        let mut definitions = DB::get_definitions(&kw).map_err(MemoryError::Other)?;
 
         if kw.shuffle {
             definitions.shuffle(&mut thread_rng());
@@ -246,7 +246,7 @@ cmd!(Set(_ctx, msg, args)
     let user    = msg.author.id.into():i64;
 
     let result: Result<(), MemoryError> = try {
-        let mut kw = match DB.get_keyword(&keyword) {
+        let mut kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
             Ok(keyword)   => keyword,
@@ -268,7 +268,7 @@ cmd!(Set(_ctx, msg, args)
 
         kw.owner = user;
 
-        DB.update_keyword(&kw).map_err(MemoryError::Other)?;
+        DB::update_keyword(&kw).map_err(MemoryError::Other)?;
     };
 
     match result {
@@ -309,8 +309,8 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
             embedded,
         };
 
-        let kw = match DB.get_keyword(&keyword) {
-            Err(NotFound) => DB.add_keyword(&kw).map_err(MemoryError::Other)?,
+        let kw = match DB::get_keyword(&keyword) {
+            Err(NotFound) => DB::add_keyword(&kw).map_err(MemoryError::Other)?,
             Err(error) => Err(MemoryError::Other(error))?,
             Ok(keyword) => keyword,
         };
@@ -319,7 +319,7 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
             Err(MemoryError::Denied)?;
         }
 
-        match DB.add_definition(&def) {
+        match DB::add_definition(&def) {
             Err(DatabaseError(UniqueViolation, _)) => Err(MemoryError::Exists)?,
             Err(error) => Err(MemoryError::Other(error))?,
             Ok(_) => (),

@@ -35,7 +35,7 @@ pub struct Definition {
     pub embedded: bool,
 }
 
-#[derive(Clone, Debug, Default, AsChangeset, Identifiable, Insertable, Queryable)]
+#[derive(Clone, Debug, Default, AsChangeset, Associations, Identifiable, Insertable, Queryable)]
 #[table_name = "characters"]
 #[primary_key(pin)]
 pub struct Character {
@@ -54,6 +54,16 @@ pub struct Attribute {
     pub name: String,
     pub value: i32,
     pub maximum: i32,
+}
+
+#[derive(Clone, Debug, AsChangeset, Associations, Identifiable, Insertable, Queryable)]
+#[belongs_to(Character, foreign_key = "pin")]
+#[table_name = "notes"]
+#[primary_key(name, pin)]
+pub struct Note {
+    pub pin: i64,
+    pub name: String,
+    pub note: String,
 }
 
 #[derive(Clone, Debug, Default, AsChangeset, Identifiable, Insertable, Queryable)]
