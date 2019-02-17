@@ -38,7 +38,7 @@ cmd!(TrackCharacter(_ctx, msg, args)
             Ok(_)         => Err(TrackError::Exists)?,
         };
 
-        let content = format!("**[{}]** {} ({})\n`Nothing currently tracked.`", who, comment, msg.timestamp);
+        let content = format!("**[{}]** {} ({})\n```New character.```", who, comment, msg.timestamp);
         let message = msg.channel_id.say(&content).map_err(|e| TrackError::Serenity(SyncFailure::new(e)))?;
         message.pin().map_err(|e| TrackError::Serenity(SyncFailure::new(e)))?;
 
@@ -304,7 +304,7 @@ fn update_pin(ch: &Character, comment: &str) -> Result<(), TrackError> {
     };
 
     let content = format!(
-        "**[{}]** {} ({})\n`{}`",
+        "**[{}]** {} ({})\n```{}```",
         ch.name,
         comment,
         Utc::now(),
