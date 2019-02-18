@@ -22,7 +22,7 @@ cmd!(Dice(ctx, msg, args)
     })?;
 
     let mut map = ctx.data.lock();
-    let mut cache = map.get_mut::<DiceCache>().unwrap();
+    let mut cache = map.entry::<DiceCache>().or_insert_with(Default::default);
     cache.insert(sent.id, expr);
 });
 
