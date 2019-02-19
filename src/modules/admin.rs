@@ -55,12 +55,12 @@ cmd!(ChangePrefix(ctx, msg, args)
     let new = {
         if msg.guild_id.is_none() || args.starts_with("channel") {
             Prefix {
-                id:     -(msg.channel_id.into():i64),
+                id:     { let i:i64 = msg.channel_id.into(); -i },
                 prefix: args.trim_start_matches("channel").trim().to_string(),
             }
         } else {
             Prefix {
-                id:     msg.guild_id.unwrap().into():i64,
+                id:     msg.guild_id.unwrap().into(),
                 prefix: args.trim().to_string(),
             }
         }
@@ -80,7 +80,7 @@ cmd!(ChangePrefix(ctx, msg, args)
             reply!(msg, "Changed prefix from `{}` to `{}`.", old, new.prefix);
         }
     } else if new.prefix.is_empty() {
-        err_log!(msg.reply("The prefix has not been changed."));
+        reply!(msg, "The prefix has not been changed.");
     } else {
         reply!(msg, "Changed prefix to `{}`.",  new.prefix);
     }
@@ -102,12 +102,12 @@ cmd!(ChangeTopic(_ctx, msg, args)
 
     if let Some(old) = old.filter(|s| !s.is_empty()) {
         if new.is_empty() {
-            say!(msg.channel_id, "Unset topic for {}.", mention);
+            say!(msg, "Unset topic for {}.", mention);
         } else {
-            say!(msg.channel_id, "Changed topic for {} from `{}` to `{}`.", mention, old, new);
+            say!(msg, "Changed topic for {} from `{}` to `{}`.", mention, old, new);
         }
     } else {
-        say!(msg.channel_id, "Set topic for {} to `{}`.", mention, new);
+        say!(msg, "Set topic for {} to `{}`.", mention, new);
     }
 });
 
@@ -119,7 +119,7 @@ cmd!(Quit(ctx, msg)
     let map = ctx.data.lock();
     let shard_manager = map.get::<SerenityShardManager>().unwrap();
 
-    err_log!(msg.channel_id.say("Goodnight, everybody!"));
+    say!(msg, "Goodnight, everybody!");
     shard_manager.lock().shutdown_all();
 });
 

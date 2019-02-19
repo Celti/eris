@@ -9,12 +9,12 @@ macro_rules! err_log {
 
 #[macro_export]
 macro_rules! say {
-    ($to:expr, $($arg:tt)*) => { $crate::err_log!($to.say(&std::format!($($arg)*))) }
+    ($msg:expr, $($arg:tt)*) => { $crate::err_log!($msg.channel_id.say(&std::format!($($arg)*))) }
 }
 
 #[macro_export]
 macro_rules! reply {
-    ($to:expr, $($arg:tt)*) => { $crate::err_log!($to.reply(&std::format!($($arg)*))) }
+    ($msg:expr, $($arg:tt)*) => { $crate::err_log!($msg.reply(&std::format!($($arg)*))) }
 }
 
 #[macro_export]

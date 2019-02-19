@@ -72,11 +72,11 @@ fn dynamic_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
         .or_insert_with(|| DynamicPrefix::get().unwrap());
 
     let channel_prefix = cache
-        .get(&(-(msg.channel_id.into(): i64)))
+        .get(&{ let i:i64 = msg.channel_id.into(); -i})
         .filter(|s| !s.is_empty());
     let guild_prefix = || {
         msg.guild_id
-            .and_then(|i| cache.get(&(i.into(): i64)).filter(|s| !s.is_empty()))
+            .and_then(|i| cache.get(&i.into()).filter(|s| !s.is_empty()))
     };
 
     channel_prefix.or_else(guild_prefix).cloned()
@@ -140,7 +140,7 @@ fn unrecognised_command(_: &mut Context, msg: &Message, name: &str) {
                     .channel_id
                     .send_message(|m| m.embed(|e| e.image(&def.definition))));
             } else {
-                err_log!(msg.channel_id.say(&def.definition));
+                say!(&msg, "{}", def.definition);
             }
         }
     }

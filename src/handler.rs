@@ -35,7 +35,7 @@ impl EventHandler for Handler {
                 let mut map = ctx.data.lock();
                 let cache = map.entry::<DiceCache>().or_insert_with(Default::default);
 
-                let result: Result<(), CommandError> = try {
+                if let Err(err) = || -> Result<(), CommandError> {
                     if let Some(expr) = cache.remove(&re.message_id) {
                         re.message()?.delete_reactions()?;
 
@@ -51,24 +51,22 @@ impl EventHandler for Handler {
                     } else {
                         log::info!("Die roll is not in message cache.");
                     };
-                };
-
-                if let Err(err) = result {
+                    Ok(())
+                }(){
                     log::error!("error repeating dice roll: {:?}", err);
                 }
             }
 
             // Delete message.
             ReactionType::Unicode(ref x) if x == "❌" => {
-                let result: Result<(), CommandError> = try {
+                if let Err(err) = || -> Result<(), CommandError> {
                     let msg = re.message()?;
 
                     if msg.author.id == bot_id {
                         msg.delete()?;
                     };
-                };
-
-                if let Err(err) = result {
+                    Ok(())
+                }(){
                     log::error!("error deleting message: {:?}", err);
                 }
             }

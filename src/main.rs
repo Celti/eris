@@ -1,6 +1,3 @@
-#![feature(nll)]
-#![feature(try_blocks)]
-#![feature(type_ascription)]
 #[macro_use]
 extern crate diesel;
 #[macro_use]

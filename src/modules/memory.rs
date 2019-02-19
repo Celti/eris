@@ -59,7 +59,7 @@ cmd!(Details(ctx, msg, _args)
         let user = UserId(memory.def[memory.idx].submitter as u64).mention();
         let ts   = memory.def[memory.idx].timestamp;
 
-        msg.channel_id.say(&format!("{} ({}/{}) submitted by {} at {}.", kw, idx, max, user, ts))?;
+        say!(msg, "{} ({}/{}) submitted by {} at {}.", kw, idx, max, user, ts);
     }
 });
 
@@ -75,9 +75,9 @@ cmd!(Find(_ctx, msg, args)
     let partial = args.single::<String>()?;
 
     match DB::find_keywords(&partial) {
-        Ok(ref kw) if kw.is_empty() => say!(msg.channel_id, "Sorry, I didn't find any keywords matching `{}`.", partial),
-        Err(NotFound) => say!(msg.channel_id, "Sorry, I didn't find any keywords matching `{}`.", partial),
-        Ok(keywords) => say!(msg.channel_id, "I found the following keywords: `{:?}`", keywords),
+        Ok(ref kw) if kw.is_empty() => say!(msg, "Sorry, I didn't find any keywords matching `{}`.", partial),
+        Err(NotFound) => say!(msg, "Sorry, I didn't find any keywords matching `{}`.", partial),
+        Ok(keywords) => say!(msg, "I found the following keywords: `{:?}`", keywords),
         Err(error) => Err(error)?,
     };
 });
@@ -87,15 +87,16 @@ cmd!(Forget(_ctx, msg, args)
      desc: "Forget a specific keyword definition.", min_args: 2, {
     let keyword = args.single::<String>()?;
     let definition = args.rest().to_string();
+    let author: i64 = msg.author.id.into();
 
-    let result: Result<(), MemoryError> = try {
+    let result = || -> Result<(), MemoryError> {
         let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
             Ok(keyword)   => keyword,
         };
 
-        if (kw.hidden || kw.protect) && kw.owner != msg.author.id.into():i64 {
+        if (kw.hidden || kw.protect) && kw.owner != author {
             Err(MemoryError::Denied)?;
         }
 
@@ -106,15 +107,17 @@ cmd!(Forget(_ctx, msg, args)
         };
 
         DB::del_definition(&def).map_err(MemoryError::Other)?;
-    };
+
+        Ok(())
+    }();
 
     match result {
-        Err(MemoryError::Denied)       => { say!(msg.channel_id, "Sorry, you're not allowed to edit `{}`.", keyword); }
-        Err(MemoryError::Exists)       => { unreachable!() }
-        Err(MemoryError::Invalid(_))   => { unreachable!() }
-        Err(MemoryError::NotFound)     => { say!(msg.channel_id, "Sorry, I don't know that about `{}`.", keyword); }
-        Err(MemoryError::Other(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "Entry removed for {}.", keyword); }
+        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to edit `{}`.", keyword),
+        Err(MemoryError::Exists)       => unreachable!(),
+        Err(MemoryError::Invalid(_))   => unreachable!(),
+        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know that about `{}`.", keyword),
+        Err(MemoryError::Other(error)) => Err(error)?,
+        Ok(()) => say!(msg, "Entry removed for {}.", keyword),
     }
 });
 
@@ -123,15 +126,16 @@ cmd!(Match(ctx, msg, args)
      desc: "Match against a keyword's definitions.", min_args: 2, {
     let keyword = args.single::<String>()?;
     let partial = args.rest().to_string();
+    let author: i64 = msg.author.id.into();
 
-    let result: Result<Memory, MemoryError> = try {
+    let result = || -> Result<Memory, MemoryError> {
         let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
             Ok(kw)   => kw,
         };
 
-        if kw.hidden && kw.owner != msg.author.id.into():i64 {
+        if kw.hidden && kw.owner != author {
             Err(MemoryError::Denied)?;
         }
 
@@ -145,17 +149,15 @@ cmd!(Match(ctx, msg, args)
             definitions.shuffle(&mut thread_rng());
         }
 
-        Memory { idx: 0, def: definitions }
-    };
+        Ok(Memory { idx: 0, def: definitions })
+    }();
 
     match result {
-        Err(MemoryError::Denied)       => { say!(msg.channel_id, "Sorry, you're not allowed to view `{}`.", keyword); }
-        Err(MemoryError::Exists)       => { unreachable!() }
-        Err(MemoryError::Invalid(_))   => { unreachable!() }
-        Err(MemoryError::NotFound)     => {
-            say!(msg.channel_id, "Sorry, I don't know anything about `{}` matching `{}`.", keyword, partial);
-        }
-        Err(MemoryError::Other(error)) => { Err(error)?; }
+        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to view `{}`.", keyword),
+        Err(MemoryError::Exists)       => unreachable!(),
+        Err(MemoryError::Invalid(_))   => unreachable!(),
+        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know anything about `{}` matching `{}`.", keyword, partial),
+        Err(MemoryError::Other(error)) => Err(error)?,
         Ok(memory) => {
             msg.channel_id.send_message(|_| memory.to_message_content())?;
             ctx.data.lock().entry::<MemoryCache>().or_insert(Default::default()).insert(msg.channel_id, memory);
@@ -195,15 +197,16 @@ cmd!(Recall(ctx, msg, args)
      aliases: ["recall"],
      desc: "Retrieve a keyword's definitions.", num_args: 1, {
     let keyword = args.single::<String>()?;
+    let author: i64 = msg.author.id.into();
 
-    let result: Result<Memory, MemoryError> = try {
+    let result = || -> Result<Memory, MemoryError> {
         let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
             Ok(keyword)   => keyword,
         };
 
-        if kw.hidden && kw.owner != msg.author.id.into():i64 {
+        if kw.hidden && kw.owner != author {
             Err(MemoryError::Denied)?;
         }
 
@@ -217,15 +220,15 @@ cmd!(Recall(ctx, msg, args)
             Err(MemoryError::NotFound)?;
         }
 
-        Memory { idx: 0, def: definitions }
-    };
+        Ok(Memory { idx: 0, def: definitions })
+    }();
 
     match result {
-        Err(MemoryError::Denied)       => { say!(msg.channel_id, "Sorry, you're not allowed to view `{}`.", keyword); }
-        Err(MemoryError::Exists)       => { unreachable!() }
-        Err(MemoryError::Invalid(_))   => { unreachable!() }
-        Err(MemoryError::NotFound)     => { say!(msg.channel_id, "Sorry, I don't know anything about `{}`.", keyword); }
-        Err(MemoryError::Other(error)) => { Err(error)?; }
+        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to view `{}`.", keyword),
+        Err(MemoryError::Exists)       => unreachable!(),
+        Err(MemoryError::Invalid(_))   => unreachable!(),
+        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know anything about `{}`.", keyword),
+        Err(MemoryError::Other(error)) => Err(error)?,
         Ok(memory) => {
             msg.channel_id.send_message(|_| memory.to_message_content())?;
             ctx.data.lock().entry::<MemoryCache>().or_insert(Default::default()).insert(msg.channel_id, memory);
@@ -243,9 +246,9 @@ cmd!(Set(_ctx, msg, args)
      aliases: ["set"],
      desc: "Set keyword options.", min_args: 2, {
     let keyword = args.single::<String>()?;
-    let user    = msg.author.id.into():i64;
+    let user    = msg.author.id.into();
 
-    let result: Result<(), MemoryError> = try {
+    let result = || -> Result<(), MemoryError> {
         let mut kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
             Err(error)    => Err(MemoryError::Other(error))?,
@@ -269,15 +272,17 @@ cmd!(Set(_ctx, msg, args)
         kw.owner = user;
 
         DB::update_keyword(&kw).map_err(MemoryError::Other)?;
-    };
+
+        Ok(())
+    }();
 
     match result {
-        Err(MemoryError::Denied)       => { say!(msg.channel_id, "Sorry, you're not allowed to edit `{}`.", keyword); }
-        Err(MemoryError::Exists)       => { unreachable!() }
-        Err(MemoryError::Invalid(opt)) => { say!(msg.channel_id, "Sorry, I don't recognize the option `{}`.", opt); }
-        Err(MemoryError::NotFound)     => { say!(msg.channel_id, "Sorry, I don't know anything about `{}`.", keyword); }
-        Err(MemoryError::Other(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "Options changed for {}.", keyword); }
+        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to edit `{}`.", keyword),
+        Err(MemoryError::Exists)       => unreachable!(),
+        Err(MemoryError::Invalid(opt)) => say!(msg, "Sorry, I don't recognize the option `{}`.", opt),
+        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know anything about `{}`.", keyword),
+        Err(MemoryError::Other(error)) => Err(error)?,
+        Ok(()) => say!(msg, "Options changed for {}.", keyword),
     }
 });
 
@@ -285,8 +290,8 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
     let keyword = args.single::<String>()?;
     let definition = args.rest().to_string();
 
-    let result: Result<(), MemoryError> = try {
-        let submitter = msg.author.id.into(): i64;
+    let result = || -> Result<(), MemoryError> {
+        let submitter = msg.author.id.into();
         let timestamp = Utc.from_utc_datetime(&msg.timestamp.naive_utc());
         let bareword = false;
         let hidden = false;
@@ -324,31 +329,17 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
             Err(error) => Err(MemoryError::Other(error))?,
             Ok(_) => (),
         };
-    };
+
+        Ok(())
+    }();
 
     match result {
-        Err(MemoryError::Denied) => {
-            say!(
-                msg.channel_id,
-                "Sorry, you're not allowed to edit `{}`.",
-                keyword
-            );
-        }
-        Err(MemoryError::Exists) => {
-            say!(
-                msg.channel_id,
-                "Sorry, I already know that about `{}`.",
-                keyword
-            );
-        }
+        Err(MemoryError::Denied) => say!(msg, "Sorry, you're not allowed to edit `{}`.", keyword),
+        Err(MemoryError::Exists) => say!(msg, "Sorry, I already know that about `{}`.", keyword),
         Err(MemoryError::Invalid(_)) => unreachable!(),
         Err(MemoryError::NotFound) => unreachable!(),
-        Err(MemoryError::Other(error)) => {
-            Err(error)?;
-        }
-        Ok(()) => {
-            say!(msg.channel_id, "Entry added for {}.", keyword);
-        }
+        Err(MemoryError::Other(error)) => Err(error)?,
+        Ok(()) => say!(msg, "Entry added for {}.", keyword),
     }
 
     Ok(())

@@ -26,12 +26,12 @@ cmd!(TrackCharacter(_ctx, msg, args)
      usage: r#""<Name>" [Comment]"#,
      min_args: 1,
 {
-    let who     = args.single_quoted::<String>()?;
+    let who = args.single_quoted::<String>()?;
     let comment = args.rest();
     let channel = msg.channel_id.into();
-    let owner   = msg.author.id.into();
+    let owner = msg.author.id.into();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<(), TrackError> {
         match DB::get_character_by_pair(&who, channel) {
             Err(NotFound) => (),
             Err(error)    => Err(TrackError::Query(error))?,
@@ -44,14 +44,16 @@ cmd!(TrackCharacter(_ctx, msg, args)
 
         let ch = Character { name: who.clone(), channel, owner, pin: message.id.into() };
         DB::add_character(&ch).map_err(TrackError::Query)?;
-    };
+
+        Ok(())
+    }();
 
     match result {
         Err(TrackError::Denied) => unreachable!(),
-        Err(TrackError::Exists) => say!(msg.channel_id, "I'm already tracking {}. See the pinned messages.", who),
+        Err(TrackError::Exists) => say!(msg, "I'm already tracking {}. See the pinned messages.", who),
         Err(TrackError::Query(error)) => Err(error)?,
         Err(TrackError::Serenity(error)) => Err(error)?,
-        Ok(()) => say!(msg.channel_id, "Now tracking {}.", who),
+        Ok(_) => say!(msg, "Now tracking {}.", who),
     }
 });
 
@@ -61,23 +63,24 @@ cmd!(ForgetCharacter(_ctx, msg, args)
      usage: r#""<Character>""#,
      num_args: 1,
 {
-    let who = args.current_quoted().unwrap();
-
-    let result: Result<(), TrackError> = try {
-        let ch = DB::get_character_by_pair(&who, msg.channel_id.into()).map_err(TrackError::Query)?;
+    let who = args.current_quoted().ok_or("No character provided!")?;
+    let result = || -> Result<(), TrackError> {
+        let ch = DB::get_character_by_pair(who, msg.channel_id.into()).map_err(TrackError::Query)?;
         denied(&ch, msg.author.id)?;
 
         ChannelId(ch.channel as u64).delete_message(ch.pin as u64).map_err(|e| TrackError::Serenity(SyncFailure::new(e)))?;
         DB::del_character(&ch).map_err(TrackError::Query)?;
-    };
+
+        Ok(())
+    }();
 
     match result {
-        Err(TrackError::Denied) => { say!(msg.channel_id, "Sorry, you're not allowed to edit {}.", who); }
-        Err(TrackError::Exists) => { unreachable!() }
-        Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
-        Err(TrackError::Query(error)) => { Err(error)?; }
-        Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "No longer tracking {}.", who); }
+        Err(TrackError::Denied) => say!(msg, "Sorry, you're not allowed to edit {}.", who),
+        Err(TrackError::Exists) => unreachable!(),
+        Err(TrackError::Query(NotFound)) => say!(msg, "Sorry, I'm not tracking {}.", who),
+        Err(TrackError::Query(error)) => Err(error)?,
+        Err(TrackError::Serenity(error)) => Err(error)?,
+        Ok(_) => say!(msg, "No longer tracking {}.", who),
     }
 });
 
@@ -93,12 +96,12 @@ cmd!(SetAttribute(_ctx, msg, args)
     let maximum = args.single::<i32>().ok();
     let comment = args.rest();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<Attribute, TrackError> {
         let ch = DB::get_character_by_pair(&who, msg.channel_id.into()).map_err(TrackError::Query)?;
 
         denied(&ch, msg.author.id)?;
 
-        if let Some(at) = DB::get_attribute(&name, ch.pin).optional().map_err(TrackError::Query)? {
+        let at = if let Some(at) = DB::get_attribute(&name, ch.pin).optional().map_err(TrackError::Query)? {
             DB::update_attribute(&Attribute {
                 name: name.clone(),
                 value: value,
@@ -115,17 +118,20 @@ cmd!(SetAttribute(_ctx, msg, args)
         }.map_err(TrackError::Query)?;
 
         update_pin(&ch, &comment)?;
-    };
+
+        Ok(at)
+    }();
 
     match result {
-        Err(TrackError::Denied) => { say!(msg.channel_id, "Sorry, you're not allowed to edit {}.", who); }
-        Err(TrackError::Exists) => { unreachable!(); }
-        Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
-        Err(TrackError::Query(error)) => { Err(error)?; }
-        Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => match maximum {
-            None | Some(0) => say!(msg.channel_id, "Set {} for {} to {}.", name, who, value),
-            Some(max) => say!(msg.channel_id, "Set {} for {} to {}/{}.", name, who, value, max),
+        Err(TrackError::Denied) => say!(msg, "Sorry, you're not allowed to edit {}.", who),
+        Err(TrackError::Exists) => unreachable!(),
+        Err(TrackError::Query(NotFound)) => say!(msg, "Sorry, I'm not tracking {}.", who),
+        Err(TrackError::Query(error)) => Err(error)?,
+        Err(TrackError::Serenity(error)) => Err(error)?,
+        Ok(at) => if at.maximum == 0 {
+            say!(msg, "Set {} for {} to {}.", at.name, who, at.value);
+        } else {
+            say!(msg, "Set {} for {} to {}/{}.", at.name, who, at.value, at.maximum);
         }
     }
 });
@@ -140,7 +146,7 @@ cmd!(DelAttrOrNote(_ctx, msg, args)
     let name    = args.single_quoted::<String>()?;
     let comment = args.rest();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<(), TrackError> {
         let ch = DB::get_character_by_pair(&who, msg.channel_id.into()).map_err(TrackError::Query)?;
 
         denied(&ch, msg.author.id)?;
@@ -156,15 +162,17 @@ cmd!(DelAttrOrNote(_ctx, msg, args)
         };
 
         update_pin(&ch, &comment)?;
-    };
+
+        Ok(())
+    }();
 
     match result {
-        Err(TrackError::Denied) => { say!(msg.channel_id, "Sorry, you're not allowed to edit {}.", who); }
-        Err(TrackError::Exists) => { say!(msg.channel_id, "Sorry, I'm not tracking {} for {}.", name, who); }
-        Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
-        Err(TrackError::Query(error)) => { Err(error)?; }
-        Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "Stopped tracking {} for {}.", name, who); }
+        Err(TrackError::Denied) => say!(msg, "Sorry, you're not allowed to edit {}.", who),
+        Err(TrackError::Exists) => say!(msg, "Sorry, I'm not tracking {} for {}.", name, who),
+        Err(TrackError::Query(NotFound)) => say!(msg, "Sorry, I'm not tracking {}.", who),
+        Err(TrackError::Query(error)) => Err(error)?,
+        Err(TrackError::Serenity(error)) => Err(error)?,
+        Ok(_) => say!(msg, "Stopped tracking {} for {}.", name, who),
     }
 });
 
@@ -179,29 +187,31 @@ cmd!(IncAttribute(_ctx, msg, args)
     let value   = args.single::<i32>()?;
     let comment = args.rest();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<Attribute, TrackError> {
         let ch = DB::get_character_by_pair(&who, msg.channel_id.into()).map_err(TrackError::Query)?;
         denied(&ch, msg.author.id)?;
 
-        let mut attr= match DB::get_attribute(&name, ch.pin) {
+        let mut attr = match DB::get_attribute(&name, ch.pin) {
             Err(NotFound) => Err(TrackError::Exists)?,
             Err(error)    => Err(TrackError::Query(error))?,
             Ok(attribute) => attribute,
         };
 
         attr.value += value;
-
         DB::update_attribute(&attr).map_err(TrackError::Query)?;
+
         update_pin(&ch, &comment)?;
-    };
+
+        Ok(attr)
+    }();
 
     match result {
-        Err(TrackError::Denied) => { say!(msg.channel_id, "Sorry, you're not allowed to edit {}.", who); }
-        Err(TrackError::Exists) => { say!(msg.channel_id, "Sorry, I'm not tracking {} for {}.", name, who); }
-        Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
-        Err(TrackError::Query(error)) => { Err(error)?; }
-        Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "Increased {} by {} for {}.", name, value, who); }
+        Err(TrackError::Denied) => say!(msg, "Sorry, you're not allowed to edit {}.", who),
+        Err(TrackError::Exists) => say!(msg, "Sorry, I'm not tracking {} for {}.", name, who),
+        Err(TrackError::Query(NotFound)) => say!(msg, "Sorry, I'm not tracking {}.", who),
+        Err(TrackError::Query(error)) => Err(error)?,
+        Err(TrackError::Serenity(error)) => Err(error)?,
+        Ok(at) => say!(msg, "Set {} for {} to {}.", at.name, who, at.value),
     }
 });
 
@@ -216,7 +226,7 @@ cmd!(DecAttribute(_ctx, msg, args)
     let value   = args.single::<i32>()?;
     let comment = args.rest();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<Attribute, TrackError> {
         let ch = DB::get_character_by_pair(&who, msg.channel_id.into()).map_err(TrackError::Query)?;
         denied(&ch, msg.author.id)?;
 
@@ -227,18 +237,20 @@ cmd!(DecAttribute(_ctx, msg, args)
         };
 
         attr.value -= value;
-
         DB::update_attribute(&attr).map_err(TrackError::Query)?;
+
         update_pin(&ch, &comment)?;
-    };
+
+        Ok(attr)
+    }();
 
     match result {
-        Err(TrackError::Denied) => { say!(msg.channel_id, "Sorry, you're not allowed to edit {}.", who); }
-        Err(TrackError::Exists) => { say!(msg.channel_id, "Sorry, I'm not tracking {} for {}.", name, who); }
-        Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
-        Err(TrackError::Query(error)) => { Err(error)?; }
-        Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => { say!(msg.channel_id, "Decreased {} by {} for {}.", name, value, who); }
+        Err(TrackError::Denied) => say!(msg, "Sorry, you're not allowed to edit {}.", who),
+        Err(TrackError::Exists) => say!(msg, "Sorry, I'm not tracking {} for {}.", name, who),
+        Err(TrackError::Query(NotFound)) => say!(msg, "Sorry, I'm not tracking {}.", who),
+        Err(TrackError::Query(error)) => Err(error)?,
+        Err(TrackError::Serenity(error)) => Err(error)?,
+        Ok(at) => say!(msg, "Set {} for {} to {}.", at.name, who, at.value),
     }
 });
 
@@ -252,21 +264,24 @@ cmd!(SetNote(_ctx, msg, args)
     let name = args.single_quoted::<String>()?;
     let note = args.rest();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<(), TrackError> {
         let ch = DB::get_character_by_pair(&who, msg.channel_id.into()).map_err(TrackError::Query)?;
         denied(&ch, msg.author.id)?;
 
-        DB::set_note(&Note { name: name.clone(), note:  note.to_string(), pin: ch.pin }).map_err(TrackError::Query)?;
+        DB::set_note(&Note { name: name.clone(), note: note.to_string(), pin: ch.pin }).map_err(TrackError::Query)?;
+
         update_pin(&ch, "")?;
-    };
+
+        Ok(())
+    }();
 
     match result {
-        Err(TrackError::Denied) => { say!(msg.channel_id, "Sorry, you're not allowed to edit {}.", who); }
-        Err(TrackError::Exists) => { unreachable!(); }
-        Err(TrackError::Query(NotFound)) => { say!(msg.channel_id, "Sorry, I'm not tracking {}.", who); }
-        Err(TrackError::Query(error)) => { Err(error)?; }
-        Err(TrackError::Serenity(error)) => { Err(error)?; }
-        Ok(()) => say!(msg.channel_id, "Added note on {} for {}.", name, who),
+        Err(TrackError::Denied) => say!(msg, "Sorry, you're not allowed to edit {}.", who),
+        Err(TrackError::Exists) => unreachable!(),
+        Err(TrackError::Query(NotFound)) => say!(msg, "Sorry, I'm not tracking {}.", who),
+        Err(TrackError::Query(error)) => Err(error)?,
+        Err(TrackError::Serenity(error)) => Err(error)?,
+        Ok(_) => say!(msg, "Added note on {} for {}.", name, who),
     }
 });
 
@@ -275,14 +290,13 @@ cmd!(ChannelGM(_ctx, msg)
      desc: "Sets or removes the current user as the channel GM.",
      max_args: 1,
 {
-    let channel = msg.channel_id.into():i64;
-    let gm = msg.author.id.into():i64;
+    let channel: i64 = msg.channel_id.into();
+    let gm: i64 = msg.author.id.into();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<(), TrackError> {
         match DB::get_channel(channel) {
-            Err(NotFound) => {
-                DB::add_channel(&Channel{channel, gm}).map_err(TrackError::Query)?;
-            }
+            Err(NotFound) => { DB::add_channel(&Channel{channel, gm}).map_err(TrackError::Query)?; }
+            Err(error) => Err(TrackError::Query(error))?,
             Ok(ch) => {
                 if ch.gm == gm {
                     DB::del_channel(&Channel{channel, gm}).map_err(TrackError::Query)?;
@@ -290,16 +304,17 @@ cmd!(ChannelGM(_ctx, msg)
                     Err(TrackError::Denied)?;
                 }
             }
-            Err(error) => Err(TrackError::Query(error))?,
         };
-    };
+
+        Ok(())
+    }();
 
     match result {
-        Err(TrackError::Denied) => say!(msg.channel_id, "Sorry, {} already has a GM.", msg.channel_id.mention()),
+        Err(TrackError::Denied) => say!(msg, "Sorry, {} already has a GM.", msg.channel_id.mention()),
         Err(TrackError::Exists) => unreachable!(),
         Err(TrackError::Query(error)) => Err(error)?,
         Err(TrackError::Serenity(error)) => Err(error)?,
-        Ok(()) => say!(msg.channel_id, "Updated GM for {}.", msg.channel_id.mention()),
+        Ok(_) => say!(msg, "Updated GM for {}.", msg.channel_id.mention()),
     }
 });
 
@@ -312,7 +327,7 @@ cmd!(ReloadPin(_ctx, msg, args)
     let who     = args.single_quoted::<String>()?;
     let comment = args.rest();
 
-    let result: Result<(), TrackError> = try {
+    let result = || -> Result<(), TrackError> {
         let old = DB::get_character_by_pair(&who, msg.channel_id.into()).map_err(TrackError::Query)?;
         denied(&old, msg.author.id)?;
 
@@ -324,14 +339,16 @@ cmd!(ReloadPin(_ctx, msg, args)
         let new = Character { name: old.name.clone(), channel: old.channel, owner: old.owner, pin: message.id.into() };
         DB::update_pin(&old, &new).map_err(TrackError::Query)?;
         update_pin(&new, comment)?;
-    };
+
+        Ok(())
+    }();
 
     match result {
         Err(TrackError::Denied) => unreachable!(),
-        Err(TrackError::Exists) => say!(msg.channel_id, "I'm already tracking {}. See the pinned messages.", who),
+        Err(TrackError::Exists) => say!(msg, "I'm already tracking {}. See the pinned messages.", who),
         Err(TrackError::Query(error)) => Err(error)?,
         Err(TrackError::Serenity(error)) => Err(error)?,
-        Ok(()) => say!(msg.channel_id, "Now tracking {}.", who),
+        Ok(_) => say!(msg, "Now tracking {}.", who),
     }
 });
 
