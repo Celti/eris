@@ -1,12 +1,16 @@
 use serenity::framework::standard::CommandError;
 use std::process::Command;
+use serenity::client::Context;
+use serenity::framework::standard::{Args, CommandResult};
+use serenity::framework::standard::macros::{command, group};
+use serenity::model::channel::Message;
 
-cmd!(CalcLinear(_ctx, msg, arg)
-     aliases: ["linear", "super"],
-     desc: "Calculate the linear value for a given size/range modifier.",
-     num_args: 1,
-{
-    let val = arg.single::<f64>()?;
+#[command]
+#[aliases(super)]
+#[description("Calculate the linear value (supervalue) for a given size or speed/range modifier.")]
+#[num_args(1)]
+fn linear(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    let val = args.single::<f64>()?;
     let cof = ((val % 6.0) + 2.0) / 6.0;
     let mag = (val / 6.0).trunc();
     let raw = 10f64.powf(cof) * 10f64.powf(mag);
@@ -19,30 +23,35 @@ cmd!(CalcLinear(_ctx, msg, arg)
         }
     };
 
-    reply!(msg, "Size: {}; Linear Value: {}", val, (raw / rnd).round() * rnd);
-});
+    reply!(ctx, msg, "Size: {}; Linear Value: {}", val, (raw / rnd).round() * rnd);
 
-cmd!(CalcLogNeg(_ctx, msg, args)
-     aliases: ["sr", "speed", "range"],
-     desc: "Calculate the speed/range penalty for a given measurement.",
-     min_args: 1,
-{
-    reply!(msg, "{}", -sm(yards(args.full())?));
-});
+    Ok(())
+}
 
-cmd!(CalcLogPos(_ctx, msg, args)
-     aliases: ["sm", "size"],
-     desc: "Calculate the size modifier for a given measurement.",
-     min_args: 1,
-{
-    reply!(msg, "{}", sm(yards(args.full())?));
-});
+#[command]
+#[aliases(speed, sr)]
+#[description("Calculate the speed/range penalty for a given linear measurement.")]
+#[min_args(1)]
+fn range(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    reply!(ctx, msg, "{}", -sm(yards(args.message())?));
 
-cmd!(CalcStrength(_ctx, msg, args)
-     aliases: ["st"],
-     desc: "Calculate Basic Lift and damage for a given ST (using KYOS).",
-     num_args: 1,
-{
+    Ok(())
+}
+
+#[command]
+#[aliases(sm)]
+#[description("Calculate the size modifier for a given linear measurement.")]
+#[min_args(1)]
+fn size(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    reply!(ctx, msg, "{}", sm(yards(args.message())?));
+
+    Ok(())
+}
+
+#[command]
+#[description("Calculate Basic Lift and damage for a given ST (using KYOS).")]
+#[num_args(1)]
+fn st(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let st = args.single::<f64>()?;
 
     let lift = {
@@ -83,10 +92,16 @@ cmd!(CalcStrength(_ctx, msg, args)
         }
     };
 
-    reply!(msg, "**ST** {}: **Basic Lift** {}; **Damage** {}{}", st, lift, thrust, swing);
-});
+    reply!(ctx, msg, "**ST** {}: **Basic Lift** {}; **Damage** {}{}", st, lift, thrust, swing);
 
-grp![CalcLinear, CalcLogNeg, CalcLogPos, CalcStrength];
+    Ok(())
+}
+
+group!({
+    name: "GURPS",
+    options: {},
+    commands: [linear, range, size, st]
+});
 
 fn sm(yards: f64) -> f64 {
     let ord = 10f64.powf(yards.log10().floor());

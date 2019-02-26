@@ -1,19 +1,21 @@
 use crate::db::model::{Definition, Keyword};
 use crate::db::Memory as DB;
 
-use self::QueryError::{DatabaseError, NotFound};
 use chrono::{TimeZone, Utc};
 use diesel::result::DatabaseErrorKind::UniqueViolation;
 use diesel::result::Error as QueryError;
-use failure::Fail;
+use diesel::result::Error::{DatabaseError, NotFound};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use serenity::builder::CreateMessage;
-use serenity::framework::standard::{Args, CommandError};
+use serenity::client::Context;
+use serenity::framework::standard::macros::{command, group};
+use serenity::framework::standard::{Args, CommandResult};
 use serenity::model::channel::Message;
 use serenity::model::id::{ChannelId, UserId};
 use serenity::model::misc::Mentionable;
-use serenity::prelude::TypeMapKey;
+use serenity::prelude::*;
+use std::error::Error as StdError;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 struct MemoryCache;
 impl TypeMapKey for MemoryCache {
@@ -26,65 +28,105 @@ struct Memory {
 }
 
 impl Memory {
-    pub fn to_message_content(&self) -> CreateMessage {
-        if self.def[self.idx].embedded {
-            CreateMessage::default().embed(|e| e.image(&self.def[self.idx].definition))
-        } else {
-            CreateMessage::default().content(&self.def[self.idx].definition)
+    pub fn send_to_channel(&self, ctx: &Context, channel_id: ChannelId) -> Result<Message, SerenityError> {
+        channel_id.send_message(&ctx.http, |msg| {
+            if self.def[self.idx].embedded {
+                msg.embed(|e| e.image(&self.def[self.idx].definition))
+            } else {
+                msg.content(&self.def[self.idx].definition)
+            }
+        })
+    }
+}
+
+#[derive(Debug)]
+enum MemoryError {
+    Denied,
+    Exists,
+    Invalid(String),
+    NotFound,
+    Query(QueryError),
+}
+
+impl Display for MemoryError {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match self {
+            MemoryError::Denied => write!(f, "Permission denied."),
+            MemoryError::Exists => write!(f, "Keyword or definition already exists."),
+            MemoryError::Invalid(s) => write!(f, "Invalid argument: {}", s),
+            MemoryError::NotFound => write!(f, "Keyword or definition not found."),
+            MemoryError::Query(q) => write!(f, "{}", q),
         }
     }
 }
 
-#[derive(Debug, Fail)]
-enum MemoryError {
-    #[fail(display = "Permission denied.")]
-    Denied,
-    #[fail(display = "Definition exists.")]
-    Exists,
-    #[fail(display = "Invalid argument: {}", _0)]
-    Invalid(String),
-    #[fail(display = "Keyword not found.")]
-    NotFound,
-    #[fail(display = "{}", _0)]
-    Other(#[cause] QueryError),
+impl From<QueryError> for MemoryError {
+    fn from(err: QueryError) -> Self {
+        MemoryError::Query(err)
+    }
 }
 
-cmd!(Details(ctx, msg, _args)
-     aliases: ["details"],
-     desc: "Retrieve metadata for the current keyword definition.", num_args: 0, {
-    if let Some(memory) = ctx.data.lock().get::<MemoryCache>().and_then(|m| m.get(&msg.channel_id)) {
+impl StdError for MemoryError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            MemoryError::Query(q) => Some(q),
+            _ => None,
+        }
+    }
+}
+
+#[command]
+#[description("Retrieve metadata for the current keyword.")]
+#[num_args(0)]
+fn details(ctx: &mut Context, msg: &Message) -> CommandResult {
+    if let Some(memory) = ctx.data.read().get::<MemoryCache>().and_then(|m| m.get(&msg.channel_id)) {
         let kw   = &memory.def[memory.idx].keyword;
         let idx  = memory.idx + 1;
         let max  = memory.def.len();
         let user = UserId(memory.def[memory.idx].submitter as u64).mention();
         let ts   = memory.def[memory.idx].timestamp;
 
-        say!(msg, "{} ({}/{}) submitted by {} at {}.", kw, idx, max, user, ts);
+        say!(ctx, msg, "{} ({}/{}) submitted by {} at {}.", kw, idx, max, user, ts);
     }
-});
 
-cmd!(Embed(_ctx, msg, args)
-     aliases: ["embed"],
-     desc: "Add a new keyword embed.", min_args: 2, {
-    add_entry(&msg, &mut args, true)?;
-});
+    Ok(())
+}
 
-cmd!(Find(_ctx, msg, args)
-     aliases: ["find"],
-     desc: "Find a keyword by match.", num_args: 1, {
+#[command]
+#[description("Add a new embedded definition for a keyword.")]
+#[min_args(2)]
+fn embed(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    add_entry(&ctx, &msg, &mut args, true)
+}
+
+#[command]
+#[description("Add a new definition for a keyword.")]
+#[min_args(2)]
+fn remember(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
+    add_entry(&ctx, &msg, &mut args, false)
+}
+
+
+#[command]
+#[description("Find a keyword by partial match.")]
+#[num_args(1)]
+fn find(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let partial = args.single::<String>()?;
 
     match DB::find_keywords(&partial) {
-        Ok(ref kw) if kw.is_empty() => say!(msg, "Sorry, I didn't find any keywords matching `{}`.", partial),
-        Err(NotFound) => say!(msg, "Sorry, I didn't find any keywords matching `{}`.", partial),
-        Ok(keywords) => say!(msg, "I found the following keywords: `{:?}`", keywords),
+        Ok(ref kw) if kw.is_empty() => say!(ctx, msg, "Sorry, I didn't find any keywords matching `{}`.", partial),
+        Err(NotFound) => say!(ctx, msg, "Sorry, I didn't find any keywords matching `{}`.", partial),
+        Ok(keywords) => say!(ctx, msg, "I found the following keywords: `{:?}`", keywords),
         Err(error) => Err(error)?,
-    };
-});
+    }
 
-cmd!(Forget(_ctx, msg, args)
-     aliases: ["forget"],
-     desc: "Forget a specific keyword definition.", min_args: 2, {
+    Ok(())
+}
+
+#[command]
+#[description("Remove a definition from a keyword.")]
+#[min_args(2)]
+fn forget(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let keyword = args.single::<String>()?;
     let definition = args.rest().to_string();
     let author: i64 = msg.author.id.into();
@@ -92,7 +134,7 @@ cmd!(Forget(_ctx, msg, args)
     let result = || -> Result<(), MemoryError> {
         let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
-            Err(error)    => Err(MemoryError::Other(error))?,
+            Err(error)    => Err(MemoryError::Query(error))?,
             Ok(keyword)   => keyword,
         };
 
@@ -102,28 +144,31 @@ cmd!(Forget(_ctx, msg, args)
 
         let def = match DB::get_definition(&keyword, &definition) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
-            Err(error) => Err(MemoryError::Other(error))?,
+            Err(error) => Err(MemoryError::Query(error))?,
             Ok(definition) => definition,
         };
 
-        DB::del_definition(&def).map_err(MemoryError::Other)?;
+        DB::del_definition(&def)?;
 
         Ok(())
     }();
 
     match result {
-        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to edit `{}`.", keyword),
+        Err(MemoryError::Denied)       => say!(ctx, msg, "Sorry, you're not allowed to edit `{}`.", keyword),
         Err(MemoryError::Exists)       => unreachable!(),
         Err(MemoryError::Invalid(_))   => unreachable!(),
-        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know that about `{}`.", keyword),
-        Err(MemoryError::Other(error)) => Err(error)?,
-        Ok(()) => say!(msg, "Entry removed for {}.", keyword),
+        Err(MemoryError::NotFound)     => say!(ctx, msg, "Sorry, I don't know that about `{}`.", keyword),
+        Err(MemoryError::Query(error)) => Err(error)?,
+        Ok(()) => say!(ctx, msg, "Entry removed for {}.", keyword),
     }
-});
 
-cmd!(Match(ctx, msg, args)
-     aliases: ["match"],
-     desc: "Match against a keyword's definitions.", min_args: 2, {
+    Ok(())
+}
+
+#[command]
+#[description("Find a keyword's definition by partial match.")]
+#[min_args(2)]
+fn search(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let keyword = args.single::<String>()?;
     let partial = args.rest().to_string();
     let author: i64 = msg.author.id.into();
@@ -131,7 +176,7 @@ cmd!(Match(ctx, msg, args)
     let result = || -> Result<Memory, MemoryError> {
         let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
-            Err(error)    => Err(MemoryError::Other(error))?,
+            Err(error)    => Err(MemoryError::Query(error))?,
             Ok(kw)   => kw,
         };
 
@@ -139,7 +184,7 @@ cmd!(Match(ctx, msg, args)
             Err(MemoryError::Denied)?;
         }
 
-        let mut definitions = DB::find_definitions(&kw, &partial).map_err(MemoryError::Other)?;
+        let mut definitions = DB::find_definitions(&kw, &partial)?;
 
         if definitions.is_empty() {
             Err(MemoryError::NotFound)?;
@@ -153,56 +198,65 @@ cmd!(Match(ctx, msg, args)
     }();
 
     match result {
-        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to view `{}`.", keyword),
+        Err(MemoryError::Denied)       => say!(ctx, msg, "Sorry, you're not allowed to view `{}`.", keyword),
         Err(MemoryError::Exists)       => unreachable!(),
         Err(MemoryError::Invalid(_))   => unreachable!(),
-        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know anything about `{}` matching `{}`.", keyword, partial),
-        Err(MemoryError::Other(error)) => Err(error)?,
+        Err(MemoryError::NotFound)     => say!(ctx, msg, "Sorry, I don't know anything about `{}` matching `{}`.", keyword, partial),
+        Err(MemoryError::Query(error)) => Err(error)?,
         Ok(memory) => {
-            msg.channel_id.send_message(|_| memory.to_message_content())?;
-            ctx.data.lock().entry::<MemoryCache>().or_insert(Default::default()).insert(msg.channel_id, memory);
+            memory.send_to_channel(&ctx, msg.channel_id)?;
+            ctx.data.write().entry::<MemoryCache>().or_insert(Default::default()).insert(msg.channel_id, memory);
         }
     }
-});
 
-cmd!(Next(ctx, msg, _args)
-     aliases: ["next"],
-     desc: "Retrieve the current keyword's next definition.", num_args: 0, {
-    if let Some(memory) = ctx.data.lock().get_mut::<MemoryCache>().and_then(|m| m.get_mut(&msg.channel_id)) {
+    Ok(())
+}
+
+#[command]
+#[description("Retrieve the next definition for the current keyword.")]
+#[num_args(0)]
+fn next(ctx: &mut Context, msg: &Message) -> CommandResult {
+    if let Some(memory) = ctx.data.write().get_mut::<MemoryCache>().and_then(|m| m.get_mut(&msg.channel_id)) {
         if memory.idx == memory.def.len() - 1 {
             memory.idx = 0;
         } else {
             memory.idx += 1;
         }
 
-        msg.channel_id.send_message(|_| memory.to_message_content())?;
+        memory.send_to_channel(&ctx, msg.channel_id)?;
     }
-});
 
-cmd!(Prev(ctx, msg, _args)
-     aliases: ["prev"],
-     desc: "Retrieve the current keyword's previous definition.", num_args: 0, {
-    if let Some(memory) = ctx.data.lock().get_mut::<MemoryCache>().and_then(|m| m.get_mut(&msg.channel_id)) {
+    Ok(())
+}
+
+#[command]
+#[description("Retrieve the previous definition for the current keyword.")]
+#[num_args(0)]
+fn prev(ctx: &mut Context, msg: &Message) -> CommandResult {
+    if let Some(memory) = ctx.data.write().get_mut::<MemoryCache>().and_then(|m| m.get_mut(&msg.channel_id)) {
         if memory.idx == 0 {
             memory.idx = memory.def.len() - 1;
         } else {
             memory.idx -= 1;
         }
 
-        msg.channel_id.send_message(|_| memory.to_message_content())?;
+        memory.send_to_channel(&ctx, msg.channel_id)?;
     }
-});
 
-cmd!(Recall(ctx, msg, args)
-     aliases: ["recall"],
-     desc: "Retrieve a keyword's definitions.", num_args: 1, {
+    Ok(())
+}
+
+#[command]
+#[description("Retrieve the definitions for a keyword.")]
+#[num_args(1)]
+fn recall(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let keyword = args.single::<String>()?;
     let author: i64 = msg.author.id.into();
 
     let result = || -> Result<Memory, MemoryError> {
         let kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
-            Err(error)    => Err(MemoryError::Other(error))?,
+            Err(error)    => Err(MemoryError::Query(error))?,
             Ok(keyword)   => keyword,
         };
 
@@ -210,7 +264,7 @@ cmd!(Recall(ctx, msg, args)
             Err(MemoryError::Denied)?;
         }
 
-        let mut definitions = DB::get_definitions(&kw).map_err(MemoryError::Other)?;
+        let mut definitions = DB::get_definitions(&kw)?;
 
         if kw.shuffle {
             definitions.shuffle(&mut thread_rng());
@@ -224,34 +278,31 @@ cmd!(Recall(ctx, msg, args)
     }();
 
     match result {
-        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to view `{}`.", keyword),
+        Err(MemoryError::Denied)       => say!(ctx, msg, "Sorry, you're not allowed to view `{}`.", keyword),
         Err(MemoryError::Exists)       => unreachable!(),
         Err(MemoryError::Invalid(_))   => unreachable!(),
-        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know anything about `{}`.", keyword),
-        Err(MemoryError::Other(error)) => Err(error)?,
+        Err(MemoryError::NotFound)     => say!(ctx, msg, "Sorry, I don't know anything about `{}`.", keyword),
+        Err(MemoryError::Query(error)) => Err(error)?,
         Ok(memory) => {
-            msg.channel_id.send_message(|_| memory.to_message_content())?;
-            ctx.data.lock().entry::<MemoryCache>().or_insert(Default::default()).insert(msg.channel_id, memory);
+            memory.send_to_channel(&ctx, msg.channel_id)?;
+            ctx.data.write().entry::<MemoryCache>().or_insert(Default::default()).insert(msg.channel_id, memory);
         }
     }
-});
 
-cmd!(Remember(_ctx, msg, args)
-     aliases: ["remember"],
-     desc: "Add a new keyword definition.", min_args: 2, {
-    add_entry(&msg, &mut args, false)?;
-});
+    Ok(())
+}
 
-cmd!(Set(_ctx, msg, args)
-     aliases: ["set"],
-     desc: "Set keyword options.", min_args: 2, {
+#[command]
+#[description("Set the options for a keyword.")]
+#[min_args(2)]
+fn set(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     let keyword = args.single::<String>()?;
     let user    = msg.author.id.into();
 
     let result = || -> Result<(), MemoryError> {
         let mut kw = match DB::get_keyword(&keyword) {
             Err(NotFound) => Err(MemoryError::NotFound)?,
-            Err(error)    => Err(MemoryError::Other(error))?,
+            Err(error)    => Err(MemoryError::Query(error))?,
             Ok(keyword)   => keyword,
         };
 
@@ -271,22 +322,24 @@ cmd!(Set(_ctx, msg, args)
 
         kw.owner = user;
 
-        DB::update_keyword(&kw).map_err(MemoryError::Other)?;
+        DB::update_keyword(&kw)?;
 
         Ok(())
     }();
 
     match result {
-        Err(MemoryError::Denied)       => say!(msg, "Sorry, you're not allowed to edit `{}`.", keyword),
+        Err(MemoryError::Denied)       => say!(ctx, msg, "Sorry, you're not allowed to edit `{}`.", keyword),
         Err(MemoryError::Exists)       => unreachable!(),
-        Err(MemoryError::Invalid(opt)) => say!(msg, "Sorry, I don't recognize the option `{}`.", opt),
-        Err(MemoryError::NotFound)     => say!(msg, "Sorry, I don't know anything about `{}`.", keyword),
-        Err(MemoryError::Other(error)) => Err(error)?,
-        Ok(()) => say!(msg, "Options changed for {}.", keyword),
+        Err(MemoryError::Invalid(opt)) => say!(ctx, msg, "Sorry, I don't recognize the option `{}`.", opt),
+        Err(MemoryError::NotFound)     => say!(ctx, msg, "Sorry, I don't know anything about `{}`.", keyword),
+        Err(MemoryError::Query(error)) => Err(error)?,
+        Ok(()) => say!(ctx, msg, "Options changed for {}.", keyword),
     }
-});
 
-fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), CommandError> {
+    Ok(())
+}
+
+fn add_entry(ctx: &Context, msg: &Message, args: &mut Args, embedded: bool) -> CommandResult {
     let keyword = args.single::<String>()?;
     let definition = args.rest().to_string();
 
@@ -315,8 +368,8 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
         };
 
         let kw = match DB::get_keyword(&keyword) {
-            Err(NotFound) => DB::add_keyword(&kw).map_err(MemoryError::Other)?,
-            Err(error) => Err(MemoryError::Other(error))?,
+            Err(NotFound) => DB::add_keyword(&kw)?,
+            Err(error) => Err(MemoryError::Query(error))?,
             Ok(keyword) => keyword,
         };
 
@@ -326,7 +379,7 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
 
         match DB::add_definition(&def) {
             Err(DatabaseError(UniqueViolation, _)) => Err(MemoryError::Exists)?,
-            Err(error) => Err(MemoryError::Other(error))?,
+            Err(error) => Err(MemoryError::Query(error))?,
             Ok(_) => (),
         };
 
@@ -334,15 +387,19 @@ fn add_entry(msg: &Message, args: &mut Args, embedded: bool) -> Result<(), Comma
     }();
 
     match result {
-        Err(MemoryError::Denied) => say!(msg, "Sorry, you're not allowed to edit `{}`.", keyword),
-        Err(MemoryError::Exists) => say!(msg, "Sorry, I already know that about `{}`.", keyword),
+        Err(MemoryError::Denied) => say!(ctx, msg, "Sorry, you're not allowed to edit `{}`.", keyword),
+        Err(MemoryError::Exists) => say!(ctx, msg, "Sorry, I already know that about `{}`.", keyword),
         Err(MemoryError::Invalid(_)) => unreachable!(),
         Err(MemoryError::NotFound) => unreachable!(),
-        Err(MemoryError::Other(error)) => Err(error)?,
-        Ok(()) => say!(msg, "Entry added for {}.", keyword),
+        Err(MemoryError::Query(error)) => Err(error)?,
+        Ok(()) => say!(ctx, msg, "Entry added for {}.", keyword),
     }
 
     Ok(())
 }
 
-grp![Details, Embed, Find, Forget, Match, Next, Prev, Recall, Remember, Set];
+group!({
+    name: "memory",
+    options: {},
+    commands: [details, embed, find, forget, search, next, prev, recall, remember, set]
+});

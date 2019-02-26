@@ -1,12 +1,28 @@
 use chrono::Utc;
 use ddate::DiscordianDate;
+use serenity::client::Context;
+use serenity::framework::standard::CommandResult;
+use serenity::framework::standard::macros::{command, group};
+use serenity::model::channel::Message;
 
-cmd!(Fnord(_ctx, msg), aliases: ["fnord"], desc: "Receive a message from the Conspiracy.", {
-    say!(msg, "{}", fnorder::fnorder());
+#[command]
+#[description("Receive a message from the Conspiracy.")]
+fn fnord(ctx: &mut Context, msg: &Message) -> CommandResult {
+    say!(ctx, msg, "{}", fnorder::fnorder());
+
+    Ok(())
+}
+
+#[command]
+#[description("PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR")]
+fn ddate(ctx: &mut Context, msg: &Message) -> CommandResult {
+    say!(ctx, msg, "Today is {}", Utc::today().to_poee());
+
+    Ok(())
+}
+
+group!({
+    name: "toys",
+    options: {},
+    commands: [ddate, fnord]
 });
-
-cmd!(DDate(_ctx, msg), aliases: ["ddate"], desc: "PERPETUAL DATE CONVERTER FROM GREGORIAN TO POEE CALENDAR", {
-    say!(msg, "Today is {}", Utc::today().to_poee());
-});
-
-grp![Fnord, DDate];

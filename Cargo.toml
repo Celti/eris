@@ -5,38 +5,31 @@ authors = ["Celti Burroughs <celti@celti.name>"]
 edition = "2018"
 
 [dependencies]
-chrono = "0.4"
-ddate = "0.4"
-diesel = { version = "1", features = ["chrono", "postgres", "r2d2"] }
-dotenv = "0.13"
-exitfailure = "0.5"
-failure = "0.1"
-fnorder = "1"
-humantime = "1"
-itertools = "0.8"
-lazy_static = "1"
-log = "0.4"
-log-panics = { version = "2", features = ["with-backtrace"] }
-maplit = "1"
-phf = "0.7"
-pretty_env_logger = "0.3"
-rand = "0.6"
-regex = "1"
-serde = "1"
-serde_derive = "1"
-serenity = "0.5"
-slugify = "0.1"
-sys-info = "0.5"
-sysinfo = "0.8"
-systemd = "0.4"
-tempfile = "3"
-unicode-segmentation = "1"
-zip = "0.5"
-
-[patch.crates-io]
-openssl = { git = "https://github.com/ishitatsuyuki/rust-openssl", branch = "0.9.x" }
+chrono = "0.4.6"
+ddate = "0.4.0"
+diesel = { version = "1.4.1", features = ["chrono", "postgres", "r2d2"] }
+dotenv = "0.13.0"
+fnorder = "1.0.0"
+humantime = "1.2.0"
+itertools = "0.8.0"
+lazy_static = "1.2.0"
+log = "0.4.6"
+log-panics = { version = "2.0.0", features = ["with-backtrace"] }
+maplit = "1.0.1"
+phf = "0.7.24"
+pretty_env_logger = "0.3.0"
+rand = "0.6.5"
+regex = "1.1.0"
+serde = "1.0.88"
+serde_derive = "1.0.88"
+serenity = { version = "0.5", git = "https://github.com/serenity-rs/serenity", branch = "framework-a-new-beginning" }
+#serenity = { version = "0.5", git = "https://github.com/celti/serenity", branch = "v0.6.x" }
+sys-info = "0.5.6"
+sysinfo = "0.8.0"
+systemd = "0.4.0"
+tempfile = "3.0.7"
+unicode-segmentation = "1.2.1"
 
 [profile.release]
 lto = true
-codegen-units = 1
 incremental = false

@@ -7,21 +7,24 @@ use std::time::Duration;
 //use std::io::{Seek, SeekFrom, Write};
 use std::process::Command;
 use sysinfo::{get_current_pid, ProcessExt, System, SystemExt};
+use serenity::client::Context;
+use serenity::framework::standard::{Args, CommandResult};
+use serenity::framework::standard::macros::{command, group};
+use serenity::model::channel::Message;
 
-cmd!(About(ctx, msg, _args)
-     aliases: ["about"],
-     desc: "About the bot.",
-     num_args: 0,
-{
-    let data = ctx.data.lock();
-    let owner = data.get::<Owner>().expect("owner").to_user()?;
-    let (guild_count, shard_count, thumbnail) = serenity::utils::with_cache(|cache| {
+#[command]
+#[description = "About this bot."]
+#[num_args(0)]
+fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let data = ctx.data.read();
+    let owner = data.get::<Owner>().expect("owner").to_user(&ctx)?;
+    let (guild_count, shard_count, thumbnail) = serenity::utils::with_cache(&ctx.cache, |cache| {
         (cache.guilds.len(), cache.shard_count, cache.user.face())
     });
 
     let sys = System::new();
     if let Some(process) = sys.get_process(get_current_pid()) {
-        msg.channel_id.send_message(|m| m
+        msg.channel_id.send_message(&ctx.http, |m| m
             .embed(|e| e
                 .description("I am Eris, Goddess of Discord (a dicebot historically, now an idiosyncratic entity written in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity)).")
                 .field("Admin", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
@@ -39,7 +42,7 @@ cmd!(About(ctx, msg, _args)
                 .colour(15_385_601)
         ))?;
     } else {
-        msg.channel_id.send_message(|m| m
+        msg.channel_id.send_message(&ctx.http, |m| m
             .embed(|e| e
                 .description("I am Eris, Goddess of Discord (a dicebot historically, now an idiosyncratic entity written in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity)).")
                 .field("Admin", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
@@ -49,15 +52,16 @@ cmd!(About(ctx, msg, _args)
                 .colour(15_385_601)
         ))?;
     }
-});
 
-cmd!(Calc(_ctx, msg, args)
-     aliases: ["calc"],
-     desc: "A unit-aware precision calculator based on GNU units.",
-     min_args: 1,
-     usage: "expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}",
-{
-    let expr = args.full().split(',');
+    Ok(())
+}
+
+#[command]
+#[description = "A unit-aware precision calculator based on GNU units."]
+#[min_args(1)]
+#[usage("expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}")]
+fn calc(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let expr = args.message().split(',');
 
     let output = Command::new("/usr/bin/units")
         .env("UNITS_ENGLISH", "US")
@@ -66,13 +70,17 @@ cmd!(Calc(_ctx, msg, args)
         .args(expr)
         .output()?;
 
-    msg.reply(&String::from_utf8_lossy(&output.stdout))?;
-});
+    msg.reply(&ctx, &String::from_utf8_lossy(&output.stdout))?;
 
-cmd!(TimeStamp(_ctx, msg, args)
-     aliases: ["when", "time", "timestamp", "date", "datestamp"],
-     desc: "Get the timestamp of the specified Discord snowflake (object ID).",
-{
+    Ok(())
+}
+
+#[command]
+#[aliases("when", "time", "timestamp", "date", "datestamp")]
+#[description("Get the timestamp of the specified Discord snowflake (object ID).")]
+#[num_args(1)]
+#[usage("expr[, into-unit]`\nFor details, see https://www.gnu.org/software/units/manual/units.html `\u{200B}")]
+fn timestamp(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     // All snowflakes are the same for timestamps. MessageId has the desired method.
     let id = MessageId({
         let s = args.single::<String>()?;
@@ -81,7 +89,13 @@ cmd!(TimeStamp(_ctx, msg, args)
             .ok_or("Could not parse snowflake!")?
     });
 
-    reply!(msg, "Snowflake {} was created at {} UTC.", id, id.created_at());
-});
+    reply!(ctx, msg, "Snowflake {} was created at {} UTC.", id, id.created_at());
 
-grp![About, Calc, TimeStamp];
+    Ok(())
+}
+
+group!({
+    name: "util",
+    options: {},
+    commands: [about, calc, timestamp]
+});

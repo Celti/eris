@@ -30,21 +30,25 @@ fn init_logger() {
     log::info!("Initialised logger.");
 }
 
-fn main() {
+fn main() -> Result<(), Box<std::error::Error>> {
     dotenv::dotenv().ok();
     log_panics::init();
     init_logger();
 
-    let token = std::env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN");
-    let mut client = Client::new(&token, Handler).expect("serenity client");
-    let info = serenity::http::get_current_application_info().expect("Discord API");
+    let token = std::env::var("DISCORD_TOKEN")?;
+    let mut client = Client::new(&token, Handler)?;
+
+    let http = client.cache_and_http.http.clone();
+    let info = http.get_current_application_info()?;
 
     {
-        let mut data = client.data.lock();
+        let mut data = client.data.write();
         data.insert::<SerenityShardManager>(Arc::clone(&client.shard_manager));
         data.insert::<Owner>(info.owner.id);
     }
 
     client.with_framework(Framework::standard(hashset!(info.owner.id)));
-    client.start_autosharded().expect("serenity client");
+    client.start_autosharded()?;
+
+    Ok(())
 }

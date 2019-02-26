@@ -3,30 +3,38 @@ use crate::model::DiceCache;
 use self::parse::Roll;
 use lazy_static::lazy_static;
 use regex::Regex;
-use serenity::framework::standard::{Args, CommandError};
+use serenity::framework::standard::{Args, CommandError, CommandResult};
 use serenity::model::misc::Mentionable;
+use serenity::client::Context;
+use serenity::framework::standard::macros::{command, group};
+use serenity::model::channel::Message;
 
 // TODO refactor parsing
 // TODO versus modes for games besides GURPS
 
-cmd!(Dice(ctx, msg, args)
-     aliases: ["roll"],
-     desc: "Calculate an expression in modified algebraic dice notation.",
-{
-    let expr = args.full().to_owned();
+#[command]
+#[description("Calculate an expression in modified algebraic dice notation.")]
+fn roll(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let expr = args.message().to_string();
     let name = msg.author.id.mention();
     let roll = process_args(args)?;
-    let sent = msg.channel_id.send_message(|m| { m
+    let sent = msg.channel_id.send_message(&ctx.http, |m| { m
         .content(format!("**{} rolled:**{}", name, roll))
         .reactions(Some('🎲'))
     })?;
 
-    let mut map = ctx.data.lock();
-    let mut cache = map.entry::<DiceCache>().or_insert_with(Default::default);
+    let mut map = ctx.data.write();
+    let cache = map.entry::<DiceCache>().or_insert_with(Default::default);
     cache.insert(sent.id, expr);
-});
 
-grp![Dice];
+    Ok(())
+}
+
+group!({
+    name: "dice",
+    options: {},
+    commands: [roll]
+});
 
 pub fn process_args(mut args: Args) -> Result<String, CommandError> {
     let res = args
@@ -135,10 +143,7 @@ mod parse {
 
     impl Roll {
         pub fn new(t: Vec<Term>) -> Self {
-            let terms = t
-                .into_iter()
-                .map(|term| term.with_value())
-                .collect::<Vec<_>>();
+            let terms = t.into_iter().map(Term::with_value).collect::<Vec<_>>();
 
             let mut total = 0;
             let mut op: Term = Term::Add;
