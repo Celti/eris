@@ -13,15 +13,15 @@ use serenity::framework::standard::{
 use serenity::client::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-
-use std::collections::HashSet;
+use maplit::hashset;
 
 pub struct Framework;
 impl Framework {
-    pub fn standard(owners: HashSet<UserId>) -> StandardFramework {
+    pub fn standard(owner_id: UserId, bot_id: UserId) -> StandardFramework {
         StandardFramework::new()
-            .configure(|c| { c
-                .allow_dm(true)
+            .configure(|c| {
+                c.on_mention = Some(bot_id.to_string());
+                c.allow_dm(true)
                 // .blocked_guilds(hashset!{GuildId(1), GuildId(2)})
                 // .blocked_users(hashset!{UserId(1), UserId(2)})
                 .case_insensitivity(true)
@@ -32,12 +32,12 @@ impl Framework {
                 .ignore_bots(true)
                 .ignore_webhooks(true)
                 .no_dm_prefix(true)
-                .on_mention(true)
-                .owners(owners)
+                // .on_mention(true)
+                .owners(hashset![owner_id])
                 .with_whitespace(false)
             })
             .after(after)
-            //.before(before)
+            .before(before)
             .help(&WITH_EMBEDS_HELP_COMMAND)
             .on_dispatch_error(on_dispatch_error)
             .unrecognised_command(unrecognised_command)
@@ -57,6 +57,11 @@ fn after(_: &mut Context, _: &Message, cmd: &str, res: Result<(), CommandError>)
         Ok(()) => log::info!("Successfully processed command `{}`", cmd),
         Err(e) => log::warn!("Error processing command `{}`: {:?}", cmd, e),
     }
+}
+
+fn before(_: &mut Context, _: &Message, cmd: &str) -> bool {
+    log::info!("Processing command `{}`", cmd);
+    true
 }
 
 fn dynamic_prefix(ctx: &mut Context, msg: &Message) -> Option<String> {
@@ -93,6 +98,7 @@ fn on_dispatch_error(ctx: &mut Context, msg: &Message, err: DispatchError) {
     match err {
         CheckFailed(c, r)     => log::info!("Check failed: {}: {:?}", c, r),
         CommandDisabled(name) => log::info!("Command disabled: {}", name),
+        Ratelimited(t)        => reply!(ctx, msg, "Command ratelimited for {} more seconds.", t),
         OnlyForDM             => reply!(ctx, msg, "This command is restricted to DMs."),
         OnlyForGuilds         => reply!(ctx, msg, "This command is restricted to servers."),
         OnlyForOwners         => reply!(ctx, msg, "This command is restricted to the bot owner."),
@@ -115,7 +121,7 @@ fn unrecognised_command(ctx: &mut Context, msg: &Message, name: &str) {
             if def.embedded {
                 err_log!(msg
                     .channel_id
-                    .send_message(&ctx.http, |m| m.embed(|e| e.image(&def.definition))));
+                    .send_message(&ctx, |m| m.embed(|e| e.image(&def.definition))));
             } else {
                 say!(ctx, msg, "{}", def.definition);
             }

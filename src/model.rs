@@ -66,7 +66,7 @@ impl MessageExt for Message {
         match self.channel_id.to_channel(&ctx) {
             Ok(Guild(lock)) => {
                 let channel = lock.read();
-                let lock = channel.guild(&ctx.cache).unwrap();
+                let lock = channel.guild(&ctx).unwrap();
                 let guild = lock.read();
                 log::info!(target: "messages", "[{} #{}] {}", guild.name, channel.name(), self.to_logstr(&ctx));
             }
@@ -90,7 +90,7 @@ impl MessageExt for Message {
     }
 
     fn to_logstr(&self, ctx: &Context) -> String {
-        let content = serenity::utils::content_safe(&ctx.cache, &self.content, &Default::default());
+        let content = serenity::utils::content_safe(&ctx, &self.content, &Default::default());
         let content = content.graphemes(true).map(|g| *EMOJI.get(g).unwrap_or(&g)).collect::<String>();
 
         let attachments = self.attachments.iter().map(|a| &a.url).join(", ");

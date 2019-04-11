@@ -1,3 +1,5 @@
+#![deny(rust_2018_idioms)]
+
 #[macro_use]
 extern crate diesel;
 #[macro_use]
@@ -13,10 +15,8 @@ mod modules;
 use crate::framework::Framework;
 use crate::handler::Handler;
 use crate::model::*;
-
-use maplit::hashset;
 use serenity::prelude::*;
-
+use std::error::Error;
 use std::sync::Arc;
 
 fn init_logger() {
@@ -30,7 +30,7 @@ fn init_logger() {
     log::info!("Initialised logger.");
 }
 
-fn main() -> Result<(), Box<std::error::Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     dotenv::dotenv().ok();
     log_panics::init();
     init_logger();
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<std::error::Error>> {
         data.insert::<Owner>(info.owner.id);
     }
 
-    client.with_framework(Framework::standard(hashset!(info.owner.id)));
+    client.with_framework(Framework::standard(info.owner.id, info.id));
     client.start_autosharded()?;
 
     Ok(())

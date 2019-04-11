@@ -18,13 +18,13 @@ use serenity::model::channel::Message;
 fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
     let data = ctx.data.read();
     let owner = data.get::<Owner>().expect("owner").to_user(&ctx)?;
-    let (guild_count, shard_count, thumbnail) = serenity::utils::with_cache(&ctx.cache, |cache| {
+    let (guild_count, shard_count, thumbnail) = serenity::utils::with_cache(&ctx, |cache| {
         (cache.guilds.len(), cache.shard_count, cache.user.face())
     });
 
     let sys = System::new();
     if let Some(process) = sys.get_process(get_current_pid()) {
-        msg.channel_id.send_message(&ctx.http, |m| m
+        msg.channel_id.send_message(&ctx, |m| m
             .embed(|e| e
                 .description("I am Eris, Goddess of Discord (a dicebot historically, now an idiosyncratic entity written in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity)).")
                 .field("Admin", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)
@@ -42,7 +42,7 @@ fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
                 .colour(15_385_601)
         ))?;
     } else {
-        msg.channel_id.send_message(&ctx.http, |m| m
+        msg.channel_id.send_message(&ctx, |m| m
             .embed(|e| e
                 .description("I am Eris, Goddess of Discord (a dicebot historically, now an idiosyncratic entity written in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity)).")
                 .field("Admin", format!("Name: {}\nID: {}", owner.tag(), owner.id), true)

@@ -29,7 +29,7 @@ struct Memory {
 
 impl Memory {
     pub fn send_to_channel(&self, ctx: &Context, channel_id: ChannelId) -> Result<Message, SerenityError> {
-        channel_id.send_message(&ctx.http, |msg| {
+        channel_id.send_message(&ctx, |msg| {
             if self.def[self.idx].embedded {
                 msg.embed(|e| e.image(&self.def[self.idx].definition))
             } else {
@@ -49,7 +49,7 @@ enum MemoryError {
 }
 
 impl Display for MemoryError {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             MemoryError::Denied => write!(f, "Permission denied."),
             MemoryError::Exists => write!(f, "Keyword or definition already exists."),

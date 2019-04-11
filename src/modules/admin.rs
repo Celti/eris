@@ -24,7 +24,7 @@ fn cache_dump(ctx: &mut Context, msg: &Message) -> CommandResult {
     let filename = format!("eris-cache-{}.log", msg.id.created_at());
     let content = format!("Cache dump for {}.", msg.id.created_at());
 
-    msg.channel_id.send_files(&ctx.http, Some((&buf, &*filename)), |m| m.reactions(Some('❌')).content(content))?;
+    msg.channel_id.send_files(&ctx, Some((&buf, &*filename)), |m| m.reactions(Some('❌')).content(content))?;
 
     Ok(())
 }
@@ -49,7 +49,7 @@ fn nick(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let guild = msg.guild_id.unwrap();
     let nick = args.message();
 
-    guild.edit_nickname(&ctx.http, match nick {
+    guild.edit_nickname(&ctx, match nick {
         n if n.is_empty() => None,
         n => Some(n)
     })?;
@@ -103,12 +103,12 @@ fn prefix(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 #[required_permissions(MANAGE_CHANNELS)]
 fn topic(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let new = args.message().trim();
-    let old = msg.channel_id.to_channel_cached(&ctx.cache)
+    let old = msg.channel_id.to_channel_cached(&ctx)
         .and_then(Channel::guild)
         .and_then(|g| g.read().topic.clone());
     let mention = msg.channel_id.mention();
 
-    msg.channel_id.edit(&ctx.http, |c| c.topic(&new))?;
+    msg.channel_id.edit(&ctx, |c| c.topic(&new))?;
 
     if let Some(old) = old.filter(|s| !s.is_empty()) {
         if new.is_empty() {

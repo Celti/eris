@@ -9,7 +9,7 @@ macro_rules! err_log {
 
 #[macro_export]
 macro_rules! say {
-    ($ctx:expr, $msg:expr, $($arg:tt)*) => { $crate::err_log!($msg.channel_id.say(&$ctx.http, &std::format!($($arg)*))) }
+    ($ctx:expr, $msg:expr, $($arg:tt)*) => { $crate::err_log!($msg.channel_id.say(&$ctx, &std::format!($($arg)*))) }
 }
 
 #[macro_export]

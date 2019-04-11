@@ -22,7 +22,7 @@ enum TrackError {
 }
 
 impl Display for TrackError {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             TrackError::Denied => write!(f, "Permission denied."),
             TrackError::Exists => write!(f, "Character or attribute already exists."),
@@ -72,7 +72,7 @@ fn track(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         };
 
         let content = format!("**[{}]** {} ({})\n```New character.```", who, comment, msg.timestamp);
-        let message = msg.channel_id.say(&ctx.http, &content)?;
+        let message = msg.channel_id.say(&ctx, &content)?;
         message.pin(&ctx)?;
 
         let ch = Character { name: who.clone(), channel, owner, pin: message.id.into() };
@@ -102,7 +102,7 @@ fn forget(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         let ch = DB::get_character_by_pair(who, msg.channel_id.into())?;
         denied(&ch, msg.author.id)?;
 
-        ChannelId(ch.channel as u64).delete_message(&ctx.http, ch.pin as u64)?;
+        ChannelId(ch.channel as u64).delete_message(&ctx, ch.pin as u64)?;
         DB::del_character(&ch)?;
 
         Ok(())
@@ -375,9 +375,9 @@ fn reload(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         denied(&old, msg.author.id)?;
 
         let content = format!("**[{}]** {} ({})\n```Regenerating character...```", who, comment, msg.timestamp);
-        let message = msg.channel_id.say(&ctx.http, &content)?;
+        let message = msg.channel_id.say(&ctx, &content)?;
         message.pin(&ctx)?;
-        ChannelId(old.channel as u64).delete_message(&ctx.http, old.pin as u64).ok();
+        ChannelId(old.channel as u64).delete_message(&ctx, old.pin as u64).ok();
 
         let new = Character { name: old.name.clone(), channel: old.channel, owner: old.owner, pin: message.id.into() };
         DB::update_pin(&old, &new)?;
@@ -387,7 +387,7 @@ fn reload(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
     }();
 
     match result {
-        Err(TrackError::Denied) => unreachable!(),
+        Err(TrackError::Denied) => say!(ctx, msg, "Sorry, you're not allowed to edit {}.", who),
         Err(TrackError::Exists) => say!(ctx, msg, "I'm already tracking {}. See the pinned messages.", who),
         Err(TrackError::Query(error)) => Err(error)?,
         Err(TrackError::Serenity(error)) => Err(error)?,
@@ -441,7 +441,7 @@ fn update_pin(ctx: &Context, ch: &Character, comment: &str) -> Result<(), TrackE
 
     let content = format!("**[{}]** {} ({})\n```{}\n{}```", ch.name, comment, Utc::now(), attrs, notes);
 
-    ChannelId(ch.channel as u64).edit_message(&ctx.http, ch.pin as u64, |m| m.content(content))?;
+    ChannelId(ch.channel as u64).edit_message(&ctx, ch.pin as u64, |m| m.content(content))?;
 
     Ok(())
 }
