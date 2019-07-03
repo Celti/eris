@@ -1,3 +1,4 @@
+pub mod dice;
 pub static EMOJI: phf::Map<&'_ str, &'_ str> = ::phf::Map {
     key: 3_213_172_566_270_843_353,
     disps: ::phf::Slice::Static(&[

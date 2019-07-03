@@ -23,7 +23,7 @@ fn about(ctx: &mut Context, msg: &Message) -> CommandResult {
     });
 
     let sys = System::new();
-    if let Some(process) = sys.get_process(get_current_pid()) {
+    if let Some(process) = sys.get_process(get_current_pid()?) {
         msg.channel_id.send_message(&ctx, |m| m
             .embed(|e| e
                 .description("I am Eris, Goddess of Discord (a dicebot historically, now an idiosyncratic entity written in [Rust](http://www.rust-lang.org/) using [Serenity](https://github.com/serenity-rs/serenity)).")

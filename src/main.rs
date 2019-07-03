@@ -9,10 +9,10 @@ mod db;
 mod ext;
 mod framework;
 mod handler;
+mod logger;
 mod model;
 mod modules;
 
-use crate::framework::Framework;
 use crate::handler::Handler;
 use crate::model::*;
 use serenity::prelude::*;
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         data.insert::<Owner>(info.owner.id);
     }
 
-    client.with_framework(Framework::standard(info.owner.id, info.id));
+    client.with_framework(framework::new(info.owner.id, info.id));
     client.start_autosharded()?;
 
     Ok(())

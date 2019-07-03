@@ -187,12 +187,12 @@ fn search(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
         let mut definitions = DB::find_definitions(&kw, &partial)?;
 
         if definitions.is_empty() {
-            Err(MemoryError::NotFound)?;
-        }
+            Err(MemoryError::NotFound)?
+        };
 
         if kw.shuffle {
-            definitions.shuffle(&mut thread_rng());
-        }
+            definitions.shuffle(&mut thread_rng())
+        };
 
         Ok(Memory { idx: 0, def: definitions })
     }();
@@ -266,13 +266,13 @@ fn recall(ctx: &mut Context, msg: &Message, mut args: Args) -> CommandResult {
 
         let mut definitions = DB::get_definitions(&kw)?;
 
-        if kw.shuffle {
-            definitions.shuffle(&mut thread_rng());
-        }
-
         if definitions.is_empty() {
-            Err(MemoryError::NotFound)?;
-        }
+            Err(MemoryError::NotFound)?
+        };
+
+        if kw.shuffle {
+            definitions.shuffle(&mut thread_rng())
+        };
 
         Ok(Memory { idx: 0, def: definitions })
     }();

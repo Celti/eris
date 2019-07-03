@@ -1,14 +1,10 @@
-use itertools::Itertools;
 use serenity::client::bridge::gateway::ShardManager;
-use serenity::model::channel::Message;
 use serenity::model::id::*;
+use serenity::model::Permissions;
 use serenity::prelude::*;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
-use unicode_segmentation::UnicodeSegmentation;
-
-use crate::ext::EMOJI;
 
 pub use crate::db::model::*;
 
@@ -42,89 +38,135 @@ impl<T: Deref> OptionDeref<T> for Option<T> {
     }
 }
 
-pub trait MessageExt {
-    fn distinct(&self, ctx: &Context) -> String;
-    fn to_logstr(&self, ctx: &Context) -> String;
-    fn logger(&self, ctx: &Context);
-    fn link(&self) -> String;
+pub trait PermissionsExt {
+    fn pretty(&self) -> String;
 }
 
-impl MessageExt for Message {
-    fn distinct(&self, ctx: &Context) -> String {
-        self.guild_id
-            .and_then(|guild_id| {
-                ctx.cache
-                    .read()
-                    .member(guild_id, self.author.id)
-                    .map(|member| member.distinct())
-            })
-            .unwrap_or_else(|| self.author.tag())
-    }
-
-    fn logger(&self, ctx: &Context) {
-        use serenity::model::channel::Channel::*;
-        match self.channel_id.to_channel(&ctx) {
-            Ok(Guild(lock)) => {
-                let channel = lock.read();
-                let lock = channel.guild(&ctx).unwrap();
-                let guild = lock.read();
-                log::info!(target: "messages", "[{} #{}] {}", guild.name, channel.name(), self.to_logstr(&ctx));
-            }
-
-            Ok(Group(lock)) => {
-                let channel = lock.read();
-                log::info!(target: "messages", "[{}] {}", channel.name(), self.to_logstr(&ctx));
-            }
-
-            Ok(Private(lock)) => {
-                let channel = lock.read();
-                log::info!(target: "messages", "[{}] {}", channel.name(), self.to_logstr(&ctx));
-            }
-
-            Ok(Category(_)) | Err(_) => {
-                log::warn!(target: "messages", "[Unknown Channel: {}] {}",
-                           self.channel_id,
-                           self.to_logstr(&ctx));
-            }
+impl PermissionsExt for Permissions {
+    #[allow(clippy::cognitive_complexity)]
+    fn pretty(&self) -> String {
+        if self.is_empty() {
+            return "None".into();
         }
-    }
 
-    fn to_logstr(&self, ctx: &Context) -> String {
-        let content = serenity::utils::content_safe(&ctx, &self.content, &Default::default());
-        let content = content.graphemes(true).map(|g| *EMOJI.get(g).unwrap_or(&g)).collect::<String>();
+        let mut strings = Vec::new();
 
-        let attachments = self.attachments.iter().map(|a| &a.url).join(", ");
-        let attachments = if !attachments.is_empty() {
-            format!("\n[Attachments: {}]", attachments)
-        } else {
-            String::new()
-        };
+        if self.administrator() {
+            strings.push("Administrator");
+        }
 
-        let embeds = self.embeds.iter().filter_map(|ref e| {
-            let video: Option<&str> = e.video.as_ref().map(|v| v.url.as_str());
-            let image: Option<&str> = e.image.as_ref().map(|v| v.url.as_str());
-            let url: Option<&str> = e.url.as_ref().map(String::as_str);
-            let desc: Option<&str> = e.description.as_ref().map(String::as_str);
-            video.or(image).or(url).or(desc)
-        }).join(", ");
+        if self.view_audit_log() {
+            strings.push("View Audit Log");
+        }
 
-        let embeds = if !embeds.is_empty() {
-            format!("\n[Embeds: {}]", embeds)
-        } else {
-            String::new()
-        };
+        if self.manage_guild() {
+            strings.push("Manage Server");
+        }
 
-        format!("<@{}> {}{}{}", self.distinct(&ctx), content, attachments, embeds)
-    }
+        if self.manage_roles() {
+            strings.push("Manage Roles");
+        }
 
-    fn link(&self) -> String {
-        format!(
-            "https://discordapp.com/channels/{}/{}/{}",
-            self.guild_id
-                .map(|id| id.to_string())
-                .unwrap_or_else(|| String::from("@me")),
-            self.channel_id,
-            self.id
-        )
+        if self.manage_channels() {
+            strings.push("Manage Channels");
+        }
+
+        if self.kick_members() {
+            strings.push("Kick Members");
+        }
+
+        if self.ban_members() {
+            strings.push("Ban Members");
+        }
+
+        if self.create_invite() {
+            strings.push("Create Instant Invite");
+        }
+
+        if self.change_nickname() {
+            strings.push("Change Nickname");
+        }
+
+        if self.manage_nicknames() {
+            strings.push("Manage Nicknames");
+        }
+
+        if self.manage_emojis() {
+            strings.push("Manage Emojis");
+        }
+
+        if self.manage_webhooks() {
+            strings.push("Manage Webhooks");
+        }
+
+        if self.read_messages() {
+            strings.push("View Channels");
+        }
+
+        if self.send_messages() {
+            strings.push("Send Messages");
+        }
+
+        if self.send_tts_messages() {
+            strings.push("Send TTS Messages");
+        }
+
+        if self.manage_messages() {
+            strings.push("Manage Messages");
+        }
+
+        if self.embed_links() {
+            strings.push("Embed Links");
+        }
+
+        if self.attach_files() {
+            strings.push("Attach Files");
+        }
+
+        if self.read_message_history() {
+            strings.push("Read Message History");
+        }
+
+        if self.mention_everyone() {
+            strings.push("Mention Everyone");
+        }
+
+        if self.use_external_emojis() {
+            strings.push("Use External Emojis");
+        }
+
+        if self.add_reactions() {
+            strings.push("Add Reactions");
+        }
+
+        if self.connect() {
+            strings.push("Connect");
+        }
+
+        if self.speak() {
+            strings.push("Speak");
+        }
+
+        if self.mute_members() {
+            strings.push("Mute Members");
+        }
+
+        if self.deafen_members() {
+            strings.push("Deafen");
+        }
+
+        if self.move_members() {
+            strings.push("Move Members");
+        }
+
+        if self.use_vad() {
+            strings.push("Use Voice Activity");
+        }
+
+        if self.priority_speaker() {
+            strings.push("Priority Speaker");
+        }
+
+        strings.join(", ")
     }
 }

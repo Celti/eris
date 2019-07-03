@@ -1,4 +1,6 @@
-use crate::model::{DiceCache, MessageExt};
+use crate::db::BotInfo;
+use crate::model::DiceCache;
+use crate::logger::MessageLogger;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 use std::sync::Arc;
@@ -44,7 +46,7 @@ impl EventHandler for Handler {
     fn reaction_remove_all(&self, _ctx: Context, _channel_id: ChannelId, _removed_from_message_id: MessageId) {}
 
     fn message(&self, ctx: Context, msg: Message) {
-        msg.logger(&ctx);
+        msg.log(&ctx);
     }
 
     fn ready(&self, ctx: Context, ready: Ready) {
@@ -54,8 +56,11 @@ impl EventHandler for Handler {
             log::info!("Logged in as '{}'", ready.user.name);
         }
 
-        // TODO get name from persistent store
-        ctx.set_activity(Activity::playing("with fire."));
+        let bot_id = serenity::utils::with_cache(&ctx, |cache| cache.user.id);
+        let activity = BotInfo::get_activity(bot_id.into())
+            .unwrap_or_else(|_| Activity::playing("with fire"));
+
+        ctx.set_activity(activity);
     }
 
     fn reaction_add(&self, ctx: Context, re: Reaction) {

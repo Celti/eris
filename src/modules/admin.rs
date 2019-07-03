@@ -1,4 +1,6 @@
 use crate::db::DynamicPrefix as DB;
+use crate::db::BotInfo;
+use crate::db::model::{ActivityKind, Bot};
 use crate::model::{Prefix, PrefixCache, SerenityShardManager};
 use serenity::model::channel::Channel;
 use serenity::model::gateway::Activity;
@@ -34,9 +36,35 @@ fn cache_dump(ctx: &mut Context, msg: &Message) -> CommandResult {
 #[description("Set the currently displayed activity.")]
 #[min_args(1)]
 #[owners_only(true)]
-fn playing(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+fn playing(ctx: &mut Context, _msg: &Message, args: Args) -> CommandResult {
+    let bot_id = serenity::utils::with_cache(&ctx, |cache| cache.user.id);
+
+    BotInfo::set(&Bot {
+        id: bot_id.into(),
+        activity_type: ActivityKind::Playing,
+        activity_name: args.message().into(),
+    })?;
+
     ctx.set_activity(Activity::playing(args.message()));
-    reply!(ctx, msg, "Game set.");
+
+    Ok(())
+}
+
+#[command]
+#[aliases(listen)]
+#[description("Set the currently displayed activity.")]
+#[min_args(1)]
+#[owners_only(true)]
+fn listening(ctx: &mut Context, _msg: &Message, args: Args) -> CommandResult {
+    let bot_id = serenity::utils::with_cache(&ctx, |cache| cache.user.id);
+
+    BotInfo::set(&Bot {
+        id: bot_id.into(),
+        activity_type: ActivityKind::Listening,
+        activity_name: args.message().into(),
+    })?;
+
+    ctx.set_activity(Activity::listening(args.message()));
 
     Ok(())
 }

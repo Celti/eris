@@ -8,6 +8,14 @@ table! {
 }
 
 table! {
+    bot (id) {
+        id -> Int8,
+        activity_type -> crate::db::model::ActivityKindMapping,
+        activity_name -> Text,
+    }
+}
+
+table! {
     channels (channel) {
         channel -> Int8,
         gm -> Int8,
@@ -65,6 +73,7 @@ joinable!(notes -> characters (pin));
 
 allow_tables_to_appear_in_same_query!(
     attributes,
+    bot,
     channels,
     characters,
     definitions,

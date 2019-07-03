@@ -2,6 +2,7 @@ use crate::db::schema::*;
 
 use chrono::{DateTime, Utc};
 use diesel::{AsChangeset, Associations, Identifiable, Insertable, Queryable};
+use diesel_derive_enum::DbEnum;
 
 #[derive(Clone, Debug, AsChangeset, Identifiable, Insertable, Queryable)]
 #[table_name = "prefixes"]
@@ -72,4 +73,21 @@ pub struct Note {
 pub struct Channel {
     pub channel: i64,
     pub gm: i64,
+}
+
+
+#[derive(Clone, Debug, DbEnum)]
+pub enum ActivityKind {
+    Playing,
+    Listening,
+    Streaming
+}
+
+#[derive(Clone, Debug, AsChangeset, Associations, Identifiable, Insertable, Queryable)]
+#[table_name = "bot"]
+#[primary_key(id)]
+pub struct Bot {
+    pub id: i64,
+    pub activity_type: ActivityKind,
+    pub activity_name: String,
 }

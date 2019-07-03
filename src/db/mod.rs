@@ -1,13 +1,15 @@
-pub mod model;
+#[allow(clippy::identity_conversion)]
 mod schema;
+pub mod model;
 
 use crate::db::model::*;
 use crate::db::schema::*;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
-use diesel::result::Error as QueryError;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
+use diesel::result::Error as QueryError;
 use lazy_static::lazy_static;
+use serenity::model::gateway::Activity;
 use std::collections::HashMap;
 
 lazy_static! {
@@ -214,5 +216,27 @@ impl CharTrack {
 
     pub fn get_channel(channel: i64) -> QueryResult<Channel> {
         Ok(channels::table.find(channel).first(&DB.get())?)
+    }
+}
+
+pub struct BotInfo;
+impl BotInfo {
+    pub fn set(bot: &Bot) -> QueryResult<Bot> {
+        Ok(diesel::insert_into(bot::table)
+            .values(bot)
+            .on_conflict(bot::id)
+            .do_update()
+            .set(bot)
+            .get_result(&DB.get())?)
+    }
+
+    pub fn get_activity(id: i64) -> QueryResult<Activity> {
+        use ActivityKind::*;
+        let bot: Bot = bot::table.find(id).first(&DB.get())?;
+        match bot.activity_type {
+            Playing => Ok(Activity::playing(&bot.activity_name)),
+            Listening => Ok(Activity::listening(&bot.activity_name)),
+            Streaming => Ok(Activity::streaming(&bot.activity_name, "https://github.com/Celti/eris")),
+        }
     }
 }
